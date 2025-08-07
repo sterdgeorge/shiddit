@@ -51,7 +51,8 @@ export default function LoginPopup({ isOpen, onClose }: LoginPopupProps) {
         
         await registerUser(email, password, username)
         onClose()
-        window.location.reload()
+        // Show success message instead of reloading
+        alert('Account created successfully! Please check your email to verify your account before you can use the site.')
       }
     } catch (error: any) {
       console.error('Auth error:', error)

@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase'
 import MainLayout from '@/components/layout/MainLayout'
 import Button from '@/components/ui/Button'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import RequireVerification from '@/components/auth/RequireVerification'
 import { MessageSquare, Image, Link, BarChart3, AlertCircle, Users, X } from 'lucide-react'
 
 interface Community {
@@ -337,15 +338,16 @@ export default function CreatePostPage() {
 
   return (
     <MainLayout>
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Create a Post
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Share something with the community
-          </p>
-        </div>
+      <RequireVerification>
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Create a Post
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Share something with the community
+            </p>
+          </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Community Selection */}
@@ -747,6 +749,7 @@ export default function CreatePostPage() {
           </div>
         </form>
       </div>
+    </RequireVerification>
     </MainLayout>
   )
 } 

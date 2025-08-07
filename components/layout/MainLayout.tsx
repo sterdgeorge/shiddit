@@ -8,13 +8,14 @@ import PopularCommunities from './PopularCommunities'
 import Footer from './Footer'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import LoginPopup from '@/components/auth/LoginPopup'
+import EmailVerificationBanner from '@/components/auth/EmailVerificationBanner'
 
 interface MainLayoutProps {
   children: React.ReactNode
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const { loading } = useAuth()
+  const { loading, user, isEmailVerified } = useAuth()
   const { isLoginOpen, hideLoginPopup } = useLogin()
 
   if (loading) {
@@ -32,6 +33,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <Sidebar />
         <div className="flex-1 flex justify-center">
           <main className="w-full max-w-2xl p-4 pt-2">
+            {user && !isEmailVerified && (
+              <EmailVerificationBanner email={user.email || ''} />
+            )}
             {children}
           </main>
         </div>

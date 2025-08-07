@@ -4,6 +4,7 @@ import {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
+  sendEmailVerification,
   User,
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp, deleteDoc, collection, query, getDocs } from 'firebase/firestore'
@@ -21,6 +22,7 @@ export interface UserProfile {
   friends: string[]
   isAdmin?: boolean
   isBanned?: boolean
+  emailVerified?: boolean
   postKarma?: number
   commentKarma?: number
   totalKarma?: number
@@ -53,6 +55,9 @@ export const registerUser = async (
       displayName: username,
     })
 
+    // Send email verification
+    await sendEmailVerification(user)
+
     // Create user profile in Firestore
     const userProfile: UserProfile = {
       uid: user.uid,
@@ -67,6 +72,7 @@ export const registerUser = async (
       postKarma: 0,
       commentKarma: 0,
       totalKarma: 0,
+      emailVerified: false,
     }
 
     await setDoc(doc(db, 'users', user.uid), userProfile)

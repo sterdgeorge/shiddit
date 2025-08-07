@@ -11,6 +11,7 @@ interface AuthContextType {
   userProfile: UserProfile | null
   loading: boolean
   isBanned: boolean
+  isEmailVerified: boolean
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   userProfile: null,
   loading: true,
   isBanned: false,
+  isEmailVerified: false,
 })
 
 export const useAuth = () => {
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [isBanned, setIsBanned] = useState(false)
+  const [isEmailVerified, setIsEmailVerified] = useState(false)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -47,9 +50,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const profile = doc.data() as UserProfile
               setUserProfile(profile)
               setIsBanned(profile.isBanned || false)
+              setIsEmailVerified(firebaseUser.emailVerified)
             } else {
               setUserProfile(null)
               setIsBanned(false)
+              setIsEmailVerified(false)
             }
           },
           (error) => {
@@ -63,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUserProfile(null)
         setIsBanned(false)
+        setIsEmailVerified(false)
       }
       
       setLoading(false)
@@ -72,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, isBanned }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, isBanned, isEmailVerified }}>
       {children}
     </AuthContext.Provider>
   )

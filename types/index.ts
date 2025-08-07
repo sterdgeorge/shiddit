@@ -48,6 +48,7 @@ export interface UserProfile {
   friends: string[]
   isAdmin?: boolean
   isBanned?: boolean
+  emailVerified?: boolean
   postKarma?: number
   commentKarma?: number
   totalKarma?: number
