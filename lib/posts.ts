@@ -151,23 +151,23 @@ export const voteComment = async (commentId: string, userId: string, voteType: '
 }
 
 // Feed algorithms
-export const getFeedPosts = async (userId?: string, sortBy: 'hot' | 'new' | 'top' | 'controversial' | 'rising' = 'hot', limit: number = 20) => {
+export const getFeedPosts = async (userId?: string, sortBy: 'hot' | 'new' | 'top' | 'controversial' | 'rising' = 'hot', limitParam: number = 20) => {
   let postsQuery
-  const limitNum = Number(limit)
+  const limitValue = Number(limitParam)
   
   if (sortBy === 'new') {
     postsQuery = query(
       collection(db, 'posts'),
       where('isDeleted', '==', false),
       orderBy('createdAt', 'desc'),
-      limit(limitNum)
+      limit(limitValue)
     )
   } else if (sortBy === 'top') {
     postsQuery = query(
       collection(db, 'posts'),
       where('isDeleted', '==', false),
       orderBy('score', 'desc'),
-      limit(limitNum)
+      limit(limitValue)
     )
   } else {
     // Default to hot (score + recency)
@@ -175,7 +175,7 @@ export const getFeedPosts = async (userId?: string, sortBy: 'hot' | 'new' | 'top
       collection(db, 'posts'),
       where('isDeleted', '==', false),
       orderBy('score', 'desc'),
-      limit(limitNum)
+      limit(limitValue)
     )
   }
   
@@ -189,9 +189,9 @@ export const getFeedPosts = async (userId?: string, sortBy: 'hot' | 'new' | 'top
   return posts
 }
 
-export const getCommunityPosts = async (communityId: string, sortBy: 'hot' | 'new' | 'top' = 'hot', limit: number = 20) => {
+export const getCommunityPosts = async (communityId: string, sortBy: 'hot' | 'new' | 'top' = 'hot', limitParam: number = 20) => {
   let postsQuery
-  const limitNum = Number(limit)
+  const limitValue = Number(limitParam)
   
   if (sortBy === 'new') {
     postsQuery = query(
@@ -199,7 +199,7 @@ export const getCommunityPosts = async (communityId: string, sortBy: 'hot' | 'ne
       where('communityId', '==', communityId),
       where('isDeleted', '==', false),
       orderBy('createdAt', 'desc'),
-      limit(limitNum)
+      limit(limitValue)
     )
   } else if (sortBy === 'top') {
     postsQuery = query(
@@ -207,7 +207,7 @@ export const getCommunityPosts = async (communityId: string, sortBy: 'hot' | 'ne
       where('communityId', '==', communityId),
       where('isDeleted', '==', false),
       orderBy('score', 'desc'),
-      limit(limitNum)
+      limit(limitValue)
     )
   } else {
     // Default to hot
@@ -216,7 +216,7 @@ export const getCommunityPosts = async (communityId: string, sortBy: 'hot' | 'ne
       where('communityId', '==', communityId),
       where('isDeleted', '==', false),
       orderBy('score', 'desc'),
-      limit(limitNum)
+      limit(limitValue)
     )
   }
   
@@ -231,10 +231,10 @@ export const getCommunityPosts = async (communityId: string, sortBy: 'hot' | 'ne
 }
 
 // Leaderboard functions
-export const getTopPosts = async (timeframe: 'day' | 'week' | 'month' | 'year' | 'all' = 'week', limit: number = 10) => {
+export const getTopPosts = async (timeframe: 'day' | 'week' | 'month' | 'year' | 'all' = 'week', limitParam: number = 10) => {
   const now = new Date()
   let startDate: Date
-  const limitNum = Number(limit)
+  const limitValue = Number(limitParam)
   
   switch (timeframe) {
     case 'day':
@@ -258,7 +258,7 @@ export const getTopPosts = async (timeframe: 'day' | 'week' | 'month' | 'year' |
     where('isDeleted', '==', false),
     where('createdAt', '>=', startDate),
     orderBy('score', 'desc'),
-    limit(limitNum)
+    limit(limitValue)
   )
   
   const querySnapshot = await getDocs(postsQuery)
