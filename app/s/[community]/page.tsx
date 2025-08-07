@@ -15,14 +15,18 @@ interface Post {
   id: string
   title: string
   content: string
-  authorId: string
   authorUsername: string
-  communityId: string
   communityName: string
-  likes: number
-  comments: number
-  createdAt: Date
+  createdAt: any
+  score: number
+  upvotes: string[]
+  downvotes: string[]
+  commentCount: number
+  type: 'text' | 'image' | 'video' | 'link' | 'poll'
+  url?: string
   imageUrl?: string
+  videoUrl?: string
+  isPinned?: boolean
 }
 
 interface Community {
@@ -91,14 +95,18 @@ export default function CommunityPage() {
             id: doc.id,
             title: data.title,
             content: data.content,
-            authorId: data.authorId,
             authorUsername: data.authorUsername,
-            communityId: data.communityId,
             communityName: data.communityName,
-            likes: data.likes || 0,
-            comments: data.comments || 0,
-            createdAt: data.createdAt?.toDate() || new Date(),
+            createdAt: data.createdAt,
+            score: data.score || 0,
+            upvotes: data.upvotes || [],
+            downvotes: data.downvotes || [],
+            commentCount: data.commentCount || 0,
+            type: data.type || 'text',
+            url: data.url,
             imageUrl: data.imageUrl,
+            videoUrl: data.videoUrl,
+            isPinned: data.isPinned || false,
           })
         })
         
