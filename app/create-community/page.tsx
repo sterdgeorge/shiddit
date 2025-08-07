@@ -60,7 +60,7 @@ export default function CreateCommunityPage() {
         creatorUsername: userProfile!.username,
         createdAt: serverTimestamp(),
         memberCount: 1,
-        members: [user!.id]
+        members: [user!.uid]
       })
 
       // Create community name reference for uniqueness
