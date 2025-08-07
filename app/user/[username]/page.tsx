@@ -163,8 +163,8 @@ export default function UserProfilePage() {
     const unsubscribeCommunities = onSnapshot(communitiesQuery, async (snapshot) => {
       const communitiesData: UserCommunity[] = []
       
-      for (const doc of snapshot.docs) {
-        const data = doc.data()
+      for (const docSnapshot of snapshot.docs) {
+        const data = docSnapshot.data()
         try {
           const communityDoc = await getDoc(doc(db, 'communities', data.communityId))
           if (communityDoc.exists()) {
