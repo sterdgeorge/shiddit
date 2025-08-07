@@ -367,8 +367,8 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map((user) => (
-                      <tr key={user.uid} className="border-b border-gray-100 dark:border-gray-800">
+                                         {filteredUsers.map((user) => (
+                       <tr key={user.id} className="border-b border-gray-100 dark:border-gray-800">
                         <td className="py-3">
                           <div className="flex items-center space-x-3">
                             <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
@@ -381,7 +381,7 @@ export default function AdminPage() {
                                 {user.username}
                               </p>
                               <p className="text-sm text-gray-500 dark:text-gray-400">
-                                ID: {user.uid.slice(0, 8)}...
+                                                                 ID: {user.id.slice(0, 8)}...
                               </p>
                             </div>
                           </div>
@@ -466,8 +466,8 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {bannedUsers.map((user) => (
-                      <tr key={user.uid} className="border-b border-gray-100 dark:border-gray-800">
+                                         {bannedUsers.map((user) => (
+                       <tr key={user.id} className="border-b border-gray-100 dark:border-gray-800">
                         <td className="py-3">
                           <div className="flex items-center space-x-3">
                             <div className="w-8 h-8 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
@@ -496,7 +496,7 @@ export default function AdminPage() {
                         </td>
                         <td className="py-3">
                           <button
-                            onClick={() => handleUnbanUser(user.uid)}
+                                                         onClick={() => handleUnbanUser(user.id)}
                             disabled={actionLoading}
                             className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition-colors disabled:opacity-50"
                           >
@@ -651,7 +651,7 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">User ID:</span>
-                    <p className="text-gray-900 dark:text-white font-mono text-sm">{selectedUser.uid}</p>
+                                         <p className="text-gray-900 dark:text-white font-mono text-sm">{selectedUser.id}</p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Karma:</span>
