@@ -35,7 +35,7 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
 
   const handleVote = async (postId: string, voteType: 'upvote' | 'downvote' | 'remove') => {
     if (!user) return
-    await votePost(postId, user.uid, voteType)
+            await votePost(postId, user.id, voteType)
   }
 
   const formatTime = (timestamp: any) => {

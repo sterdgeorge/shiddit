@@ -56,11 +56,11 @@ export default function CreateCommunityPage() {
         name: name.toLowerCase(),
         displayName: name,
         description: description.trim(),
-        creatorId: user!.uid,
+        creatorId: user!.id,
         creatorUsername: userProfile!.username,
         createdAt: serverTimestamp(),
         memberCount: 1,
-        members: [user!.uid]
+        members: [user!.id]
       })
 
       // Create community name reference for uniqueness

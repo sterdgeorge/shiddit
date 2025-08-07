@@ -32,7 +32,7 @@ export default function SettingsPage() {
     setMessage('')
 
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
+      await updateDoc(doc(db, 'users', user.id), {
         bio: bio.trim()
       })
       setMessage('Profile updated successfully!')

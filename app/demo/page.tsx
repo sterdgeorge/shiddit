@@ -1,7 +1,7 @@
 'use client'
 
 import MainLayout from '@/components/layout/MainLayout'
-import { Button } from '@/components/ui/Button'
+import Button from '@/components/ui/Button'
 import { ArrowRight, Vote, Users, TrendingUp, Award, MessageSquare } from 'lucide-react'
 
 export default function DemoPage() {
