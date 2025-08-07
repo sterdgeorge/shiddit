@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
-import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc } from 'firebase/firestore'
+import { collection, query, where, orderBy, onSnapshot, doc, deleteDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import MainLayout from '@/components/layout/MainLayout'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -19,14 +19,18 @@ interface FavoritePost {
     id: string
     title: string
     content: string
-    authorId: string
     authorUsername: string
-    communityId: string
     communityName: string
-    likes: number
-    comments: number
-    createdAt: Date
+    createdAt: any
+    score: number
+    upvotes: string[]
+    downvotes: string[]
+    commentCount: number
+    type: 'text' | 'image' | 'video' | 'link' | 'poll'
+    url?: string
     imageUrl?: string
+    videoUrl?: string
+    isPinned?: boolean
   }
 }
 
@@ -53,7 +57,7 @@ export default function FavoritesPage() {
         const data = doc.data()
         try {
           // Fetch the actual post data
-          const postDoc = await doc(db, 'posts', data.postId).get()
+          const postDoc = await getDoc(doc(db, 'posts', data.postId))
           if (postDoc.exists()) {
             const postData = postDoc.data()
             favoritesData.push({
@@ -65,14 +69,18 @@ export default function FavoritesPage() {
                 id: postDoc.id,
                 title: postData?.title || '',
                 content: postData?.content || '',
-                authorId: postData?.authorId || '',
                 authorUsername: postData?.authorUsername || '',
-                communityId: postData?.communityId || '',
                 communityName: postData?.communityName || '',
-                likes: postData?.likes || 0,
-                comments: postData?.comments || 0,
-                createdAt: postData?.createdAt?.toDate() || new Date(),
-                imageUrl: postData?.imageUrl
+                createdAt: postData?.createdAt || new Date(),
+                score: postData?.score || 0,
+                upvotes: postData?.upvotes || [],
+                downvotes: postData?.downvotes || [],
+                commentCount: postData?.commentCount || 0,
+                type: postData?.type || 'text',
+                url: postData?.url,
+                imageUrl: postData?.imageUrl,
+                videoUrl: postData?.videoUrl,
+                isPinned: postData?.isPinned || false
               }
             })
           }
