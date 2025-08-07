@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import PostCard from './PostCard'
 import FeedSort, { SortOption } from './FeedSort'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { getSortedPosts, Post, clearAllPosts } from '@/lib/localData'
+import { getSortedPosts, Post } from '@/lib/posts'
 
 export default function Feed() {
   const [posts, setPosts] = useState<Post[]>([])
@@ -12,9 +12,9 @@ export default function Feed() {
   const [sortBy, setSortBy] = useState<SortOption>('hot')
 
   useEffect(() => {
-    const fetchPosts = () => {
+    const fetchPosts = async () => {
       try {
-        const postsData = getSortedPosts(sortBy)
+        const postsData = await getSortedPosts(sortBy)
         setPosts(postsData)
       } catch (error) {
         console.error('Error fetching posts:', error)
@@ -48,9 +48,9 @@ export default function Feed() {
   }
 
   const handleClearPosts = () => {
-    clearAllPosts()
-    setPosts([])
-    window.location.reload()
+    // This function is no longer needed since we're using Firebase
+    // Posts are managed through the database
+    console.log('Clear posts function removed - using Firebase now')
   }
 
   return (

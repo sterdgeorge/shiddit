@@ -1,4 +1,16 @@
-import { doc, getDoc, setDoc, updateDoc, increment, arrayUnion, arrayRemove, collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore'
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  limit, 
+  getDocs, 
+  addDoc, 
+  doc, 
+  updateDoc, 
+  serverTimestamp,
+  where,
+  Timestamp
+} from 'firebase/firestore'
 import { db } from './firebase'
 
 export interface Post {
@@ -10,7 +22,6 @@ export interface Post {
   communityId: string
   communityName: string
   createdAt: any
-  updatedAt?: any
   upvotes: string[]
   downvotes: string[]
   score: number
@@ -19,254 +30,179 @@ export interface Post {
   url?: string
   imageUrl?: string
   videoUrl?: string
-  tags: string[]
   isPinned?: boolean
-  isLocked?: boolean
-  isDeleted?: boolean
 }
 
-export interface Comment {
-  id: string
-  postId: string
-  authorId: string
-  authorUsername: string
-  content: string
-  createdAt: any
-  updatedAt?: any
-  upvotes: string[]
-  downvotes: string[]
-  score: number
-  parentId?: string
-  replies: string[]
-  isDeleted?: boolean
+// Get posts sorted by different criteria
+export const getSortedPosts = async (sortBy: 'hot' | 'new' | 'rising'): Promise<Post[]> => {
+  try {
+    let postsQuery
+    
+    switch (sortBy) {
+      case 'new':
+        postsQuery = query(
+          collection(db, 'posts'),
+          orderBy('createdAt', 'desc')
+        )
+        break
+      case 'rising':
+        // For rising, we'll sort by score first, then by recency
+        postsQuery = query(
+          collection(db, 'posts'),
+          orderBy('score', 'desc'),
+          orderBy('createdAt', 'desc')
+        )
+        break
+      default: // hot
+        postsQuery = query(
+          collection(db, 'posts'),
+          orderBy('score', 'desc')
+        )
+        break
+    }
+    
+    const querySnapshot = await getDocs(postsQuery)
+    const posts: Post[] = []
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data()
+      posts.push({
+        id: doc.id,
+        title: data.title,
+        content: data.content,
+        authorId: data.authorId,
+        authorUsername: data.authorUsername,
+        communityId: data.communityId,
+        communityName: data.communityName,
+        createdAt: data.createdAt,
+        upvotes: data.upvotes || [],
+        downvotes: data.downvotes || [],
+        score: data.score || 0,
+        commentCount: data.commentCount || 0,
+        type: data.type || 'text',
+        url: data.url,
+        imageUrl: data.imageUrl,
+        videoUrl: data.videoUrl,
+        isPinned: data.isPinned || false
+      })
+    })
+    
+    return posts
+  } catch (error) {
+    console.error('Error fetching posts:', error)
+    return []
+  }
 }
 
-// Voting functions
+// Get top posts for leaderboard
+export const getTopPosts = async (limitCount: number = 10): Promise<Post[]> => {
+  try {
+    const postsQuery = query(
+      collection(db, 'posts'),
+      orderBy('score', 'desc'),
+      limit(limitCount)
+    )
+    
+    const querySnapshot = await getDocs(postsQuery)
+    const posts: Post[] = []
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data()
+      posts.push({
+        id: doc.id,
+        title: data.title,
+        content: data.content,
+        authorId: data.authorId,
+        authorUsername: data.authorUsername,
+        communityId: data.communityId,
+        communityName: data.communityName,
+        createdAt: data.createdAt,
+        upvotes: data.upvotes || [],
+        downvotes: data.downvotes || [],
+        score: data.score || 0,
+        commentCount: data.commentCount || 0,
+        type: data.type || 'text',
+        url: data.url,
+        imageUrl: data.imageUrl,
+        videoUrl: data.videoUrl,
+        isPinned: data.isPinned || false
+      })
+    })
+    
+    return posts
+  } catch (error) {
+    console.error('Error fetching top posts:', error)
+    return []
+  }
+}
+
+// Vote on post
 export const votePost = async (postId: string, userId: string, voteType: 'upvote' | 'downvote' | 'remove') => {
-  const postRef = doc(db, 'posts', postId)
-  const postDoc = await getDoc(postRef)
-  
-  if (!postDoc.exists()) {
-    throw new Error('Post not found')
-  }
-  
-  const postData = postDoc.data() as Post
-  const currentUpvotes = postData.upvotes || []
-  const currentDownvotes = postData.downvotes || []
-  const currentScore = postData.score || 0
-  
-  let newUpvotes = [...currentUpvotes]
-  let newDownvotes = [...currentDownvotes]
-  let scoreChange = 0
-  
-  // Remove existing votes
-  if (currentUpvotes.includes(userId)) {
-    newUpvotes = newUpvotes.filter(id => id !== userId)
-    scoreChange -= 1
-  }
-  if (currentDownvotes.includes(userId)) {
-    newDownvotes = newDownvotes.filter(id => id !== userId)
-    scoreChange += 1
-  }
-  
-  // Add new vote
-  if (voteType === 'upvote') {
-    newUpvotes.push(userId)
-    scoreChange += 1
-  } else if (voteType === 'downvote') {
-    newDownvotes.push(userId)
-    scoreChange -= 1
-  }
-  
-  // Update post
-  await updateDoc(postRef, {
-    upvotes: newUpvotes,
-    downvotes: newDownvotes,
-    score: currentScore + scoreChange
-  })
-  
-  // Update user karma
-  if (voteType !== 'remove') {
-    const userRef = doc(db, 'users', postData.authorId)
-    await updateDoc(userRef, {
-      postKarma: increment(scoreChange)
+  try {
+    const postRef = doc(db, 'posts', postId)
+    const postDoc = await getDocs(query(collection(db, 'posts'), where('__name__', '==', postId)))
+    
+    if (postDoc.empty) {
+      throw new Error('Post not found')
+    }
+    
+    const postData = postDoc.docs[0].data()
+    const upvotes = postData.upvotes || []
+    const downvotes = postData.downvotes || []
+    
+    // Remove existing votes
+    const newUpvotes = upvotes.filter((id: string) => id !== userId)
+    const newDownvotes = downvotes.filter((id: string) => id !== userId)
+    
+    // Add new vote
+    if (voteType === 'upvote') {
+      newUpvotes.push(userId)
+    } else if (voteType === 'downvote') {
+      newDownvotes.push(userId)
+    }
+    
+    // Calculate new score
+    const newScore = newUpvotes.length - newDownvotes.length
+    
+    // Update the post
+    await updateDoc(postRef, {
+      upvotes: newUpvotes,
+      downvotes: newDownvotes,
+      score: newScore
     })
+    
+    return {
+      id: postId,
+      upvotes: newUpvotes,
+      downvotes: newDownvotes,
+      score: newScore
+    }
+  } catch (error) {
+    console.error('Error voting on post:', error)
+    throw error
   }
-  
-  return { score: currentScore + scoreChange, upvotes: newUpvotes, downvotes: newDownvotes }
 }
 
-export const voteComment = async (commentId: string, userId: string, voteType: 'upvote' | 'downvote' | 'remove') => {
-  const commentRef = doc(db, 'comments', commentId)
-  const commentDoc = await getDoc(commentRef)
-  
-  if (!commentDoc.exists()) {
-    throw new Error('Comment not found')
+// Create new post
+export const createPost = async (post: Omit<Post, 'id' | 'createdAt' | 'score' | 'upvotes' | 'downvotes'>) => {
+  try {
+    const newPost = {
+      ...post,
+      createdAt: serverTimestamp(),
+      score: 0,
+      upvotes: [],
+      downvotes: [],
+      commentCount: 0
+    }
+    
+    const docRef = await addDoc(collection(db, 'posts'), newPost)
+    
+    return {
+      id: docRef.id,
+      ...newPost
+    }
+  } catch (error) {
+    console.error('Error creating post:', error)
+    throw error
   }
-  
-  const commentData = commentDoc.data() as Comment
-  const currentUpvotes = commentData.upvotes || []
-  const currentDownvotes = commentData.downvotes || []
-  const currentScore = commentData.score || 0
-  
-  let newUpvotes = [...currentUpvotes]
-  let newDownvotes = [...currentDownvotes]
-  let scoreChange = 0
-  
-  // Remove existing votes
-  if (currentUpvotes.includes(userId)) {
-    newUpvotes = newUpvotes.filter(id => id !== userId)
-    scoreChange -= 1
-  }
-  if (currentDownvotes.includes(userId)) {
-    newDownvotes = newDownvotes.filter(id => id !== userId)
-    scoreChange += 1
-  }
-  
-  // Add new vote
-  if (voteType === 'upvote') {
-    newUpvotes.push(userId)
-    scoreChange += 1
-  } else if (voteType === 'downvote') {
-    newDownvotes.push(userId)
-    scoreChange -= 1
-  }
-  
-  // Update comment
-  await updateDoc(commentRef, {
-    upvotes: newUpvotes,
-    downvotes: newDownvotes,
-    score: currentScore + scoreChange
-  })
-  
-  // Update user karma
-  if (voteType !== 'remove') {
-    const userRef = doc(db, 'users', commentData.authorId)
-    await updateDoc(userRef, {
-      commentKarma: increment(scoreChange)
-    })
-  }
-  
-  return { score: currentScore + scoreChange, upvotes: newUpvotes, downvotes: newDownvotes }
-}
-
-// Feed algorithms
-export const getFeedPosts = async (userId?: string, sortBy: 'hot' | 'new' | 'top' | 'controversial' | 'rising' = 'hot', limitParam: number = 20) => {
-  let postsQuery
-  const limitValue = Number(limitParam)
-  
-  if (sortBy === 'new') {
-    postsQuery = query(
-      collection(db, 'posts'),
-      where('isDeleted', '==', false),
-      orderBy('createdAt', 'desc'),
-      limit(limitValue)
-    )
-  } else if (sortBy === 'top') {
-    postsQuery = query(
-      collection(db, 'posts'),
-      where('isDeleted', '==', false),
-      orderBy('score', 'desc'),
-      limit(limitValue)
-    )
-  } else {
-    // Default to hot (score + recency)
-    postsQuery = query(
-      collection(db, 'posts'),
-      where('isDeleted', '==', false),
-      orderBy('score', 'desc'),
-      limit(limitValue)
-    )
-  }
-  
-  const querySnapshot = await getDocs(postsQuery)
-  const posts: Post[] = []
-  
-  querySnapshot.forEach((doc) => {
-    posts.push({ id: doc.id, ...doc.data() } as Post)
-  })
-  
-  return posts
-}
-
-export const getCommunityPosts = async (communityId: string, sortBy: 'hot' | 'new' | 'top' = 'hot', limitParam: number = 20) => {
-  let postsQuery
-  const limitValue = Number(limitParam)
-  
-  if (sortBy === 'new') {
-    postsQuery = query(
-      collection(db, 'posts'),
-      where('communityId', '==', communityId),
-      where('isDeleted', '==', false),
-      orderBy('createdAt', 'desc'),
-      limit(limitValue)
-    )
-  } else if (sortBy === 'top') {
-    postsQuery = query(
-      collection(db, 'posts'),
-      where('communityId', '==', communityId),
-      where('isDeleted', '==', false),
-      orderBy('score', 'desc'),
-      limit(limitValue)
-    )
-  } else {
-    // Default to hot
-    postsQuery = query(
-      collection(db, 'posts'),
-      where('communityId', '==', communityId),
-      where('isDeleted', '==', false),
-      orderBy('score', 'desc'),
-      limit(limitValue)
-    )
-  }
-  
-  const querySnapshot = await getDocs(postsQuery)
-  const posts: Post[] = []
-  
-  querySnapshot.forEach((doc) => {
-    posts.push({ id: doc.id, ...doc.data() } as Post)
-  })
-  
-  return posts
-}
-
-// Leaderboard functions
-export const getTopPosts = async (timeframe: 'day' | 'week' | 'month' | 'year' | 'all' = 'week', limitParam: number = 10) => {
-  const now = new Date()
-  let startDate: Date
-  const limitValue = Number(limitParam)
-  
-  switch (timeframe) {
-    case 'day':
-      startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-      break
-    case 'week':
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      break
-    case 'month':
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      break
-    case 'year':
-      startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-      break
-    default:
-      startDate = new Date(0)
-  }
-  
-  const postsQuery = query(
-    collection(db, 'posts'),
-    where('isDeleted', '==', false),
-    where('createdAt', '>=', startDate),
-    orderBy('score', 'desc'),
-    limit(limitValue)
-  )
-  
-  const querySnapshot = await getDocs(postsQuery)
-  const posts: Post[] = []
-  
-  querySnapshot.forEach((doc) => {
-    posts.push({ id: doc.id, ...doc.data() } as Post)
-  })
-  
-  return posts
 } 

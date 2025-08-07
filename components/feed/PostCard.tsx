@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/components/providers/AuthProvider'
-import { votePost } from '@/lib/localData'
+import { votePost } from '@/lib/posts'
 import VoteButtons from '@/components/ui/VoteButtons'
 import { MessageSquare, Share, MoreHorizontal, Clock, Award } from 'lucide-react'
 import { cn } from '@/lib/utils'

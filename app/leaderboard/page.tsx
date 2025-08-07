@@ -5,7 +5,7 @@ import MainLayout from '@/components/layout/MainLayout'
 import PostCard from '@/components/feed/PostCard'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { Trophy } from 'lucide-react'
-import { getTopPosts, Post } from '@/lib/localData'
+import { getTopPosts, Post } from '@/lib/posts'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,9 +14,9 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchTopPosts = () => {
+    const fetchTopPosts = async () => {
       try {
-        const postsData = getTopPosts(10)
+        const postsData = await getTopPosts(10)
         setPosts(postsData)
       } catch (error) {
         console.error('Error fetching top posts:', error)
