@@ -68,7 +68,7 @@ export default function MessagesPage() {
     // Fetch conversations with security rules
     const conversationsQuery = query(
       collection(db, 'conversations'),
-      where('participants', 'array-contains', user.id),
+              where('participants', 'array-contains', user.uid),
       orderBy('lastMessageTime', 'desc'),
       limit(50) // Limit to prevent abuse
     )
@@ -77,7 +77,7 @@ export default function MessagesPage() {
       const conversationsData: Conversation[] = []
       snapshot.forEach((doc) => {
         const data = doc.data()
-        const otherUserId = data.participants.find((id: string) => id !== user.id)
+        const otherUserId = data.participants.find((id: string) => id !== user.uid)
         conversationsData.push({
           id: doc.id,
           participants: data.participants,
@@ -88,7 +88,7 @@ export default function MessagesPage() {
             username: data.participantUsernames?.[otherUserId] || 'Unknown',
             profilePicture: data.participantProfilePictures?.[otherUserId]
           },
-          unreadCount: data.unreadCount?.[user.id] || 0
+                      unreadCount: data.unreadCount?.[user.uid] || 0
         })
       })
       setConversations(conversationsData)
@@ -106,7 +106,7 @@ export default function MessagesPage() {
       try {
         const conversationRef = doc(db, 'conversations', selectedConversation)
         await updateDoc(conversationRef, {
-          [`unreadCount.${user.id}`]: 0
+          [`unreadCount.${user.uid}`]: 0
         })
       } catch (error) {
         console.error('Error marking messages as read:', error)
@@ -184,7 +184,7 @@ export default function MessagesPage() {
 
     // Validate conversation participants
     const conversation = conversations.find(c => c.id === selectedConversation)
-    if (!conversation || !conversation.participants.includes(user.id)) {
+          if (!conversation || !conversation.participants.includes(user.uid)) {
       alert('Invalid conversation')
       return
     }
@@ -195,7 +195,7 @@ export default function MessagesPage() {
       // Add message with security metadata
       await addDoc(collection(db, 'messages'), {
         conversationId: selectedConversation,
-        senderId: user.id,
+        senderId: user.uid,
         receiverId,
         content: newMessage.trim(),
         createdAt: serverTimestamp(),
@@ -261,7 +261,7 @@ export default function MessagesPage() {
       // Check if conversation already exists
       const existingQuery = query(
         collection(db, 'conversations'),
-        where('participants', 'array-contains', user.id)
+        where('participants', 'array-contains', user.uid)
       )
       
       const existingSnapshot = await getDocs(existingQuery)
@@ -283,19 +283,19 @@ export default function MessagesPage() {
 
       // Create new conversation
       const conversationRef = await addDoc(collection(db, 'conversations'), {
-        participants: [user.id, otherUser.uid],
+                  participants: [user.uid, otherUser.uid],
         lastMessage: '',
         lastMessageTime: serverTimestamp(),
         participantUsernames: {
-          [user.id]: userProfile.username,
+          [user.uid]: userProfile.username,
           [otherUser.uid]: otherUser.username
         },
         participantProfilePictures: {
-          [user.id]: null, // User type doesn't have profilePicture
+          [user.uid]: null, // User type doesn't have profilePicture
           [otherUser.uid]: otherUser.profilePicture
         },
         unreadCount: {
-          [user.id]: 0,
+          [user.uid]: 0,
           [otherUser.uid]: 0
         },
         createdAt: serverTimestamp()

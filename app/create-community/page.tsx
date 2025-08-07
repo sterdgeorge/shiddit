@@ -56,7 +56,7 @@ export default function CreateCommunityPage() {
         name: name.toLowerCase(),
         displayName: name,
         description: description.trim(),
-        creatorId: user!.id,
+        creatorId: user!.uid,
         creatorUsername: userProfile!.username,
         createdAt: serverTimestamp(),
         memberCount: 1,

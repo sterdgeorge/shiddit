@@ -35,7 +35,7 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
 
   const handleVote = async (postId: string, voteType: 'upvote' | 'downvote' | 'remove') => {
     if (!user) return
-    votePost(postId, user.id, voteType)
+    votePost(postId, user.uid, voteType)
     // Force re-render by updating the component
     window.location.reload()
   }

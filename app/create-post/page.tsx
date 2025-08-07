@@ -87,7 +87,7 @@ export default function CreatePostPage() {
       try {
         const membersQuery = query(
           collection(db, 'communityMembers'),
-          where('userId', '==', user.id)
+          where('userId', '==', user.uid)
         )
         
         const snapshot = await getDocs(membersQuery)
@@ -241,7 +241,7 @@ export default function CreatePostPage() {
       const memberQuery = query(
         collection(db, 'communityMembers'),
         where('communityId', '==', selectedCommunity.id),
-        where('userId', '==', user.id)
+        where('userId', '==', user.uid)
       )
       const memberSnapshot = await getDocs(memberQuery)
       
@@ -263,7 +263,7 @@ export default function CreatePostPage() {
       // Create post
       const postData: any = {
         title: form.title.trim(),
-        authorId: user.id,
+        authorId: user.uid,
         authorUsername: userProfile.username,
         communityId: selectedCommunity.id,
         communityName: selectedCommunity.name,

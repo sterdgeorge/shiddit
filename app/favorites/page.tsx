@@ -46,7 +46,7 @@ export default function FavoritesPage() {
     // Fetch user's favorite posts
     const favoritesQuery = query(
       collection(db, 'favorites'),
-      where('userId', '==', user.id),
+              where('userId', '==', user.uid),
       orderBy('createdAt', 'desc')
     )
 
