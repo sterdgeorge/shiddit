@@ -35,10 +35,16 @@ interface UserPost {
   authorUsername: string
   communityId: string
   communityName: string
-  likes: number
-  comments: number
-  createdAt: Date
+  score: number
+  upvotes: string[]
+  downvotes: string[]
+  commentCount: number
+  type: 'text' | 'image' | 'video' | 'link' | 'poll'
+  url?: string
   imageUrl?: string
+  videoUrl?: string
+  isPinned?: boolean
+  createdAt: any
 }
 
 interface UserCommunity {
@@ -129,22 +135,28 @@ export default function UserProfilePage() {
 
     const unsubscribePosts = onSnapshot(postsQuery, (snapshot) => {
       const postsData: UserPost[] = []
-      snapshot.forEach((doc) => {
-        const data = doc.data()
-        postsData.push({
-          id: doc.id,
-          title: data.title,
-          content: data.content,
-          authorId: data.authorId,
-          authorUsername: data.authorUsername,
-          communityId: data.communityId,
-          communityName: data.communityName,
-          likes: data.likes || 0,
-          comments: data.comments || 0,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          imageUrl: data.imageUrl
-        })
-      })
+             snapshot.forEach((doc) => {
+         const data = doc.data()
+         postsData.push({
+           id: doc.id,
+           title: data.title,
+           content: data.content,
+           authorId: data.authorId,
+           authorUsername: data.authorUsername,
+           communityId: data.communityId,
+           communityName: data.communityName,
+           score: data.score || 0,
+           upvotes: data.upvotes || [],
+           downvotes: data.downvotes || [],
+           commentCount: data.commentCount || 0,
+           type: data.type || 'text',
+           url: data.url,
+           imageUrl: data.imageUrl,
+           videoUrl: data.videoUrl,
+           isPinned: data.isPinned || false,
+           createdAt: data.createdAt
+         })
+       })
       setPosts(postsData)
     })
 
