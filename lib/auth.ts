@@ -20,6 +20,7 @@ export interface UserProfile {
   createdAt: any
   friends: string[]
   isAdmin?: boolean
+  isBanned?: boolean
   postKarma?: number
   commentKarma?: number
   totalKarma?: number

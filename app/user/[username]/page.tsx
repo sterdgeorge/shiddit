@@ -271,7 +271,7 @@ export default function UserProfilePage() {
     )
   }
 
-  const isOwnProfile = user?.id === profile.id
+  const isOwnProfile = user?.uid === profile.id
 
   return (
     <MainLayout>

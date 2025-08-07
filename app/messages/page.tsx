@@ -238,7 +238,7 @@ export default function MessagesPage() {
       
       snapshot.forEach((doc) => {
         const data = doc.data() as any
-        if (data.uid !== user?.id) { // Don't show current user
+        if (data.uid !== user?.uid) { // Don't show current user
           results.push({
             uid: data.uid,
             username: data.username,
@@ -481,23 +481,23 @@ export default function MessagesPage() {
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${message.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
                       className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        message.senderId === user?.id
+                        message.senderId === user?.uid
                           ? 'bg-orange-500 text-white'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
                       }`}
                     >
                       <p className="text-sm">{message.content}</p>
                       <div className={`flex items-center justify-between mt-1 ${
-                        message.senderId === user?.id ? 'text-orange-100' : 'text-gray-500 dark:text-gray-400'
+                        message.senderId === user?.uid ? 'text-orange-100' : 'text-gray-500 dark:text-gray-400'
                       }`}>
                         <span className="text-xs">
                           {message.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        {message.senderId === user?.id && (
+                        {message.senderId === user?.uid && (
                           <span className="text-xs ml-2">
                             {message.read ? '✓✓' : '✓'}
                           </span>

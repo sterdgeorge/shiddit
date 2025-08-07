@@ -46,4 +46,9 @@ export interface UserProfile {
   avatar?: string
   createdAt: any
   friends: string[]
+  isAdmin?: boolean
+  isBanned?: boolean
+  postKarma?: number
+  commentKarma?: number
+  totalKarma?: number
 } 
