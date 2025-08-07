@@ -53,15 +53,15 @@ export default function FavoritesPage() {
     const unsubscribeFavorites = onSnapshot(favoritesQuery, async (snapshot) => {
       const favoritesData: FavoritePost[] = []
       
-      for (const doc of snapshot.docs) {
-        const data = doc.data()
+      for (const docSnapshot of snapshot.docs) {
+        const data = docSnapshot.data()
         try {
           // Fetch the actual post data
           const postDoc = await getDoc(doc(db, 'posts', data.postId))
           if (postDoc.exists()) {
             const postData = postDoc.data()
             favoritesData.push({
-              id: doc.id,
+              id: docSnapshot.id,
               postId: data.postId,
               userId: data.userId,
               createdAt: data.createdAt?.toDate() || new Date(),
