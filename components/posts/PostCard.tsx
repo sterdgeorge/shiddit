@@ -139,7 +139,7 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
             initialScore={post.score}
             initialUpvotes={post.upvotes}
             initialDownvotes={post.downvotes}
-            userId={user?.uid}
+                         userId={user?.id}
             onVote={handleVote}
             size="md"
           />
