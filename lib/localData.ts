@@ -28,6 +28,7 @@ export interface User {
   postKarma: number
   commentKarma: number
   totalKarma: number
+  bio?: string
 }
 
 // Sample data
@@ -41,7 +42,8 @@ const sampleUsers: User[] = [
     isAdmin: true,
     postKarma: 50,
     commentKarma: 25,
-    totalKarma: 75
+    totalKarma: 75,
+    bio: "Admin user for Shiddit platform"
   }
 ]
 
