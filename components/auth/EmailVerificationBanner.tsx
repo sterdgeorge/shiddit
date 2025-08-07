@@ -69,7 +69,17 @@ export default function EmailVerificationBanner({ email, onClose }: EmailVerific
                 )}
               </button>
               <button
-                onClick={() => window.location.reload()}
+                onClick={async () => {
+                  try {
+                    // Reload the user to check if email is verified
+                    await auth.currentUser?.reload()
+                    // Force a re-render by updating the auth state
+                    window.location.reload()
+                  } catch (error) {
+                    console.error('Error reloading user:', error)
+                    window.location.reload()
+                  }
+                }}
                 className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-200"
               >
                 I've verified my email
