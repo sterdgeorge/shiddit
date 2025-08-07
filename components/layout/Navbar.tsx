@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useTheme } from '@/components/providers/ThemeProvider'
 import { Search, Sun, Moon, Copy, LogOut, Settings, User, Shield } from 'lucide-react'
-import { logoutUser } from '@/lib/localData'
+import { logoutUser } from '@/lib/auth'
 import { copyToClipboard } from '@/lib/utils'
 import { useLogin } from '@/components/providers/LoginProvider'
 
@@ -27,11 +27,11 @@ export default function Navbar() {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
-      logoutUser()
+      await logoutUser()
       setShowUserMenu(false)
-      window.location.reload()
+      // No need to reload the page - Firebase Auth will handle the state change
     } catch (error) {
       console.error('Logout failed:', error)
     }

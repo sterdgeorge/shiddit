@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { loginUser } from '@/lib/localData'
+import { loginUser } from '@/lib/auth'
 import Button from '@/components/ui/Button'
 
 export const dynamic = 'force-dynamic'
@@ -24,14 +24,28 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const user = loginUser(email, password)
-      if (user) {
-        router.push(redirect)
-      } else {
-        setError('Invalid email or password')
-      }
+      await loginUser(email, password)
+      router.push(redirect)
     } catch (error: any) {
-      setError(error.message || 'Failed to login')
+      console.error('Login error:', error)
+      
+      // Handle specific Firebase Auth errors
+      let errorMessage = 'Failed to login'
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address'
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password'
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address'
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later'
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

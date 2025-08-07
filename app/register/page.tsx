@@ -43,7 +43,23 @@ export default function RegisterPage() {
       await registerUser(email, password, username)
       router.push('/')
     } catch (error: any) {
-      setError(error.message || 'Failed to create account')
+      console.error('Registration error:', error)
+      
+      // Handle specific Firebase Auth errors
+      let errorMessage = 'Failed to create account'
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'An account with this email already exists'
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address'
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please choose a stronger password'
+      } else if (error.message === 'Username already taken') {
+        errorMessage = 'This username is already taken. Please choose a different one'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

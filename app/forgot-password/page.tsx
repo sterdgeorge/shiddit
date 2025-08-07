@@ -23,7 +23,21 @@ export default function ForgotPasswordPage() {
       await resetPassword(email)
       setMessage('Password reset email sent! Check your inbox.')
     } catch (error: any) {
-      setError(error.message || 'Failed to send reset email')
+      console.error('Password reset error:', error)
+      
+      // Handle specific Firebase Auth errors
+      let errorMessage = 'Failed to send reset email'
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address'
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address'
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many requests. Please try again later'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
