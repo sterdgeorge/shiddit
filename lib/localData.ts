@@ -29,6 +29,7 @@ export interface User {
   commentKarma: number
   totalKarma: number
   bio?: string
+  createdAt?: Date
 }
 
 // Sample data
@@ -43,7 +44,8 @@ const sampleUsers: User[] = [
     postKarma: 50,
     commentKarma: 25,
     totalKarma: 75,
-    bio: "Admin user for Shiddit platform"
+    bio: "Admin user for Shiddit platform",
+    createdAt: new Date('2024-01-01')
   }
 ]
 
