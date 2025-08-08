@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
 import MainLayout from '@/components/layout/MainLayout'
-import { ArrowLeftRight, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react'
+import { ArrowLeftRight, ExternalLink, AlertCircle, CheckCircle, Copy } from 'lucide-react'
 
 const TOKEN_CONTRACT_ADDRESS = 'GETREADY'
 const JUPITER_IFRAME_URL = 'https://jup.ag/swap/SOL-GETREADY?inputMint=So11111111111111111111111111111111111111112&outputMint=GETREADY'
@@ -28,6 +28,15 @@ export default function SwapPage() {
 
   const openJupiterInNewTab = () => {
     window.open(JUPITER_IFRAME_URL, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleCopyCA = async () => {
+    try {
+      await navigator.clipboard.writeText(TOKEN_CONTRACT_ADDRESS)
+      // You could add a toast notification here
+    } catch (error) {
+      console.error('Failed to copy:', error)
+    }
   }
 
   if (!user) {
@@ -60,7 +69,7 @@ export default function SwapPage() {
             </h1>
           </div>
           <p className="text-gray-600 dark:text-gray-400">
-            Swap SOL and other tokens for $GETREADY using Jupiter
+            Swap SOL and other tokens for $SHIT using Jupiter
           </p>
         </div>
 
@@ -69,12 +78,20 @@ export default function SwapPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                $GETREADY Token
+                $SHIT Token
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                 Contract Address: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono">
                   {TOKEN_CONTRACT_ADDRESS}
                 </code>
+                <button
+                  onClick={handleCopyCA}
+                  className="ml-2 inline-flex items-center space-x-1 text-orange-500 hover:text-orange-600 transition-colors"
+                  title="Copy contract address"
+                >
+                  <Copy className="w-3 h-3" />
+                  <span className="text-xs">Copy CA</span>
+                </button>
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Powered by Jupiter - The best aggregator for Solana
@@ -175,7 +192,7 @@ export default function SwapPage() {
                 Step 2: Select Tokens
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Choose the token you want to swap from (like SOL) and $GETREADY as the token you want to receive.
+                Choose the token you want to swap from (like SOL) and $SHIT as the token you want to receive.
               </p>
             </div>
             <div>
@@ -183,7 +200,7 @@ export default function SwapPage() {
                 Step 3: Enter Amount
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Enter the amount you want to swap. The interface will show you the estimated $GETREADY you'll receive.
+                Enter the amount you want to swap. The interface will show you the estimated $SHIT you'll receive.
               </p>
             </div>
             <div>

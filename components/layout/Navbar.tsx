@@ -77,6 +77,14 @@ export default function Navbar() {
                {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
              </button>
 
+             {/* Copy CA Button - Always visible */}
+             <button
+               onClick={handleCopyCA}
+               className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+             >
+               Copy CA
+             </button>
+
              {/* Auth Buttons */}
              {user ? (
               <div className="relative">
@@ -145,12 +153,6 @@ export default function Navbar() {
               </div>
                            ) : (
                  <div className="flex items-center space-x-1 sm:space-x-2">
-                   <button
-                     onClick={handleCopyCA}
-                     className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                   >
-                     Copy GETREADY
-                   </button>
                    <button
                      onClick={showLoginPopup}
                      className="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-xs sm:text-sm"
