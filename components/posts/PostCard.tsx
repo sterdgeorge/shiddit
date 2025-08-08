@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { votePost } from '@/lib/posts'
 import VoteButtons from '@/components/ui/VoteButtons'
-import { MessageSquare, Share, MoreHorizontal, Clock, Award } from 'lucide-react'
+import { MessageSquare, Share, Clock, Award } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PostCardProps {
@@ -200,7 +200,36 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
                 <span>{post.commentCount} Comments</span>
               </Link>
               
-              <button className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+              <button 
+                onClick={async () => {
+                  try {
+                    const url = `${window.location.origin}/post/${post.id}`
+                    await navigator.clipboard.writeText(url)
+                    // Add visual feedback
+                    const button = event?.target as HTMLElement
+                    if (button) {
+                      const originalText = button.textContent
+                      button.textContent = 'Copied!'
+                      button.classList.add('text-green-500')
+                      setTimeout(() => {
+                        button.textContent = originalText
+                        button.classList.remove('text-green-500')
+                      }, 2000)
+                    }
+                  } catch (error) {
+                    console.error('Failed to copy to clipboard:', error)
+                    // Fallback for older browsers
+                    const url = `${window.location.origin}/post/${post.id}`
+                    const textArea = document.createElement('textarea')
+                    textArea.value = url
+                    document.body.appendChild(textArea)
+                    textArea.select()
+                    document.execCommand('copy')
+                    document.body.removeChild(textArea)
+                  }
+                }}
+                className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              >
                 <Share className="w-4 h-4" />
                 <span>Share</span>
               </button>
@@ -211,9 +240,7 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
               </button>
             </div>
 
-            <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
+
           </div>
         </div>
       </div>

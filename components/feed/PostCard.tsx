@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { votePost } from '@/lib/posts'
 import VoteButtons from '@/components/ui/VoteButtons'
-import { Share, MoreHorizontal, Clock, Award, Hash } from 'lucide-react'
+import { Share, Clock, Award, Hash } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PostCardProps {
@@ -13,6 +13,7 @@ interface PostCardProps {
     id: string
     title: string
     content: string
+    authorId: string
     authorUsername: string
     communityName: string
     createdAt: any
@@ -195,11 +196,26 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors">
+            <button 
+              onClick={async () => {
+                if (!user) {
+                  // Show login prompt or redirect to login
+                  alert('Please log in to join communities')
+                  return
+                }
+                
+                try {
+                  // Add community membership logic here
+                  console.log('Joining community:', post.communityName)
+                  // TODO: Implement actual join functionality
+                  alert('Join functionality coming soon!')
+                } catch (error) {
+                  console.error('Error joining community:', error)
+                }
+              }}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors"
+            >
               Join
-            </button>
-            <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-              <MoreHorizontal className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -243,12 +259,34 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
           </Link>
           
           <button 
-            onClick={() => {
-              const url = `${window.location.origin}/s/${post.communityName}/comments/${post.id}`
-              navigator.clipboard.writeText(url)
-              // You could add a toast notification here
+            onClick={async () => {
+              try {
+                const url = `${window.location.origin}/s/${post.communityName}/comments/${post.id}`
+                await navigator.clipboard.writeText(url)
+                // Add visual feedback
+                const button = event?.target as HTMLElement
+                if (button) {
+                  const originalText = button.textContent
+                  button.textContent = 'Copied!'
+                  button.classList.add('text-green-500')
+                  setTimeout(() => {
+                    button.textContent = originalText
+                    button.classList.remove('text-green-500')
+                  }, 2000)
+                }
+              } catch (error) {
+                console.error('Failed to copy to clipboard:', error)
+                // Fallback for older browsers
+                const url = `${window.location.origin}/s/${post.communityName}/comments/${post.id}`
+                const textArea = document.createElement('textarea')
+                textArea.value = url
+                document.body.appendChild(textArea)
+                textArea.select()
+                document.execCommand('copy')
+                document.body.removeChild(textArea)
+              }
             }}
-            className="flex items-center gap-1 sm:gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm sm:text-base"
+            className="flex items-center gap-1 sm:gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm sm:text-base transition-colors"
           >
             <Share className="w-4 h-4" />
             <span className="hidden sm:inline">Share</span>
