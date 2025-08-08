@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { collection, query, where, orderBy, limit, getDocs, doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { useAuth } from '@/components/providers/AuthProvider'
+import { joinCommunity, isCommunityMember } from '@/lib/communities'
 import MainLayout from '@/components/layout/MainLayout'
 import PostCard from '@/components/feed/PostCard'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -41,12 +43,15 @@ interface Community {
 
 export default function CommunityPage() {
   const params = useParams()
+  const { user } = useAuth()
   const communityName = params.community as string
   
   const [community, setCommunity] = useState<Community | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isMember, setIsMember] = useState(false)
+  const [joining, setJoining] = useState(false)
 
   useEffect(() => {
     const fetchCommunityAndPosts = async () => {
@@ -130,6 +135,48 @@ export default function CommunityPage() {
     fetchCommunityAndPosts()
   }, [communityName])
 
+  // Check if user is a member of this community
+  useEffect(() => {
+    const checkMembership = async () => {
+      if (user && community) {
+        try {
+          const membership = await isCommunityMember(community.id, user.uid)
+          setIsMember(membership)
+        } catch (error) {
+          console.error('Error checking membership:', error)
+        }
+      }
+    }
+    
+    checkMembership()
+  }, [user, community])
+
+  const handleJoinCommunity = async () => {
+    if (!user) {
+      alert('Please log in to join communities')
+      return
+    }
+
+    if (!community) return
+
+    setJoining(true)
+    try {
+      await joinCommunity(community.id, user.uid, user.displayName || user.email?.split('@')[0] || 'Anonymous')
+      setIsMember(true)
+      setCommunity(prev => prev ? { ...prev, memberCount: prev.memberCount + 1 } : null)
+      alert('Successfully joined the community!')
+    } catch (error) {
+      console.error('Error joining community:', error)
+      if (error instanceof Error) {
+        alert(error.message)
+      } else {
+        alert('Failed to join community')
+      }
+    } finally {
+      setJoining(false)
+    }
+  }
+
   if (loading) {
     return (
       <MainLayout>
@@ -188,11 +235,25 @@ export default function CommunityPage() {
               </div>
             </div>
             
-            <Link href="/create-post">
-              <Button className="flex items-center space-x-2">
-                <span>Create Post</span>
-              </Button>
-            </Link>
+            {user ? (
+              <button
+                onClick={handleJoinCommunity}
+                disabled={joining || isMember}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  isMember 
+                    ? 'bg-gray-500 text-white cursor-not-allowed'
+                    : 'bg-orange-500 hover:bg-orange-600 text-white'
+                } ${joining && 'opacity-50 cursor-not-allowed'}`}
+              >
+                {joining ? 'Joining...' : isMember ? 'Joined' : 'Join'}
+              </button>
+            ) : (
+              <Link href="/login">
+                <Button className="flex items-center space-x-2">
+                  <span>Login to Join</span>
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -205,9 +266,15 @@ export default function CommunityPage() {
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Be the first to share something in s/{community.displayName}!
             </p>
-            <Link href="/create-post">
-              <Button>Create Post</Button>
-            </Link>
+            {isMember ? (
+              <Link href="/create-post">
+                <Button>Create Post</Button>
+              </Link>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400">
+                Join the community to create posts!
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

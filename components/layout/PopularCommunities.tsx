@@ -99,10 +99,14 @@ export default function PopularCommunities() {
                     src={community.imageUrl} 
                     alt={community.displayName} 
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Hide the image and show the hash icon if it fails to load
+                      e.currentTarget.style.display = 'none'
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                    }}
                   />
-                ) : (
-                  <Hash className="w-4 h-4 text-white" />
-                )}
+                ) : null}
+                <Hash className={`w-4 h-4 text-white ${community.imageUrl ? 'hidden' : ''}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-gray-900 dark:text-white">
