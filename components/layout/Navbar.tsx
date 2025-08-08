@@ -20,7 +20,7 @@ export default function Navbar() {
 
   const handleCopyCA = async () => {
     try {
-      await copyToClipboard('TBA')
+      await copyToClipboard('GETREADY')
       // You could add a toast notification here
     } catch (error) {
       console.error('Failed to copy:', error)
@@ -149,7 +149,7 @@ export default function Navbar() {
                      onClick={handleCopyCA}
                      className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                    >
-                     Copy CA
+                     Copy GETREADY
                    </button>
                    <button
                      onClick={showLoginPopup}

@@ -138,6 +138,32 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
     }
   }
 
+  // Handle admin voting - this will be called by AdminVoteButtons
+  const handleAdminVote = async (voteType: 'upvote' | 'downvote') => {
+    // This function is called by AdminVoteButtons to trigger a refresh
+    // The actual admin voting is handled inside AdminVoteButtons
+    console.log('Admin vote triggered refresh:', voteType)
+    
+    // Refresh the post data from the database
+    try {
+      const { doc, getDoc } = await import('firebase/firestore')
+      const { db } = await import('@/lib/firebase')
+      
+      const postDoc = await getDoc(doc(db, 'posts', post.id))
+      if (postDoc.exists()) {
+        const data = postDoc.data()
+        setPost(prevPost => ({
+          ...prevPost,
+          upvotes: data.upvotes || [],
+          downvotes: data.downvotes || [],
+          score: data.score || 0
+        }))
+      }
+    } catch (error) {
+      console.error('Error refreshing post data:', error)
+    }
+  }
+
   const formatTime = (timestamp: any) => {
     if (!timestamp) return 'Unknown'
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
@@ -282,7 +308,7 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
                 upvotes={post.upvotes}
                 downvotes={post.downvotes}
                 userId={user?.uid}
-                onVote={handleVote}
+                onVote={handleAdminVote}
                 size="sm"
                 orientation="horizontal"
               />

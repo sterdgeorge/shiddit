@@ -45,10 +45,15 @@ export const ADMIN_CREDENTIALS = {
 // Check if user is admin
 export const isAdmin = async (userId: string): Promise<boolean> => {
   try {
+    console.log('Checking admin status for user:', userId)
     const userDoc = await getDoc(doc(db, 'users', userId))
     if (userDoc.exists()) {
-      return userDoc.data().isAdmin === true
+      const userData = userDoc.data()
+      const isAdminUser = userData.isAdmin === true
+      console.log('User admin status:', { userId, isAdmin: isAdminUser, userData })
+      return isAdminUser
     }
+    console.log('User document not found:', userId)
     return false
   } catch (error) {
     console.error('Error checking admin status:', error)
@@ -59,6 +64,8 @@ export const isAdmin = async (userId: string): Promise<boolean> => {
 // Admin unlimited voting on posts
 export const adminVotePost = async (postId: string, userId: string, voteType: 'upvote' | 'downvote' | 'remove', voteCount: number = 1) => {
   try {
+    console.log('Admin voting called:', { postId, userId, voteType, voteCount })
+    
     // Check if user is admin
     const adminStatus = await isAdmin(userId)
     if (!adminStatus) {
@@ -76,6 +83,8 @@ export const adminVotePost = async (postId: string, userId: string, voteType: 'u
     const upvotes = postData.upvotes || []
     const downvotes = postData.downvotes || []
     
+    console.log('Current post data:', { upvotes: upvotes.length, downvotes: downvotes.length, score: postData.score })
+    
     let newUpvotes = [...upvotes]
     let newDownvotes = [...downvotes]
     
@@ -84,26 +93,41 @@ export const adminVotePost = async (postId: string, userId: string, voteType: 'u
       for (let i = 0; i < voteCount; i++) {
         newUpvotes.push(userId)
       }
+      console.log(`Added ${voteCount} upvotes by admin ${userId}`)
     } else if (voteType === 'downvote') {
       // Add multiple downvotes (admin can vote multiple times)
       for (let i = 0; i < voteCount; i++) {
         newDownvotes.push(userId)
       }
+      console.log(`Added ${voteCount} downvotes by admin ${userId}`)
     } else if (voteType === 'remove') {
       // Remove all votes by this admin
+      const beforeUpvotes = newUpvotes.length
+      const beforeDownvotes = newDownvotes.length
       newUpvotes = newUpvotes.filter((id: string) => id !== userId)
       newDownvotes = newDownvotes.filter((id: string) => id !== userId)
+      console.log(`Removed ${beforeUpvotes - newUpvotes.length} upvotes and ${beforeDownvotes - newDownvotes.length} downvotes by admin ${userId}`)
     }
     
     // Calculate new score
     const newScore = newUpvotes.length - newDownvotes.length
     
-    // Update the post
+    console.log('Updated post data:', { 
+      newUpvotes: newUpvotes.length, 
+      newDownvotes: newDownvotes.length, 
+      newScore,
+      scoreChange: newScore - (postData.score || 0)
+    })
+    
+    // Update the post with server timestamp
     await updateDoc(postRef, {
       upvotes: newUpvotes,
       downvotes: newDownvotes,
-      score: newScore
+      score: newScore,
+      lastModified: serverTimestamp()
     })
+    
+    console.log('Post updated successfully')
     
     return {
       id: postId,
@@ -121,6 +145,8 @@ export const adminVotePost = async (postId: string, userId: string, voteType: 'u
 // Admin modify community member count
 export const adminModifyCommunityMembers = async (communityId: string, userId: string, newMemberCount: number) => {
   try {
+    console.log('Admin modifying community members:', { communityId, userId, newMemberCount })
+    
     // Check if user is admin
     const adminStatus = await isAdmin(userId)
     if (!adminStatus) {
@@ -134,10 +160,13 @@ export const adminModifyCommunityMembers = async (communityId: string, userId: s
       throw new Error('Community not found')
     }
     
-    // Update the member count
+    // Update the member count with server timestamp
     await updateDoc(communityRef, {
-      memberCount: newMemberCount
+      memberCount: newMemberCount,
+      lastModified: serverTimestamp()
     })
+    
+    console.log('Community member count updated successfully')
     
     return {
       id: communityId,

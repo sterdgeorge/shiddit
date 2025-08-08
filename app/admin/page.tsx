@@ -7,7 +7,7 @@ import { doc, updateDoc, deleteDoc, collection, query, getDocs, getDoc, setDoc, 
 import { adminModifyCommunityMembers } from '@/lib/admin'
 import { db } from '@/lib/firebase'
 import MainLayout from '@/components/layout/MainLayout'
-import { Shield, Crown, CheckCircle, AlertCircle, User, Settings, Trash2, Ban, Users, MessageSquare, Eye, Search, Filter, RefreshCw } from 'lucide-react'
+import { Shield, Crown, CheckCircle, AlertCircle, User, Settings, Trash2, Ban, Users, MessageSquare, Eye, Search, Filter, RefreshCw, TrendingUp } from 'lucide-react'
 
 interface Post {
   id: string
@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState<'success' | 'error'>('success')
+  const [savingCommunities, setSavingCommunities] = useState<Set<string>>(new Set())
   
   // Data states
   const [posts, setPosts] = useState<Post[]>([])
@@ -56,7 +57,7 @@ export default function AdminPage() {
   const [pendingVerifications, setPendingVerifications] = useState<UserProfile[]>([])
   
   // UI states
-  const [activeTab, setActiveTab] = useState<'overview' | 'posts' | 'communities' | 'users' | 'verifications' | 'fake-stats'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'posts' | 'communities' | 'users' | 'verifications' | 'fake-stats' | 'voting-settings'>('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'admin' | 'premium' | 'verified'>('all')
   
@@ -239,10 +240,18 @@ export default function AdminPage() {
   }
 
   const modifyCommunityMembers = async (communityId: string, newMemberCount: number) => {
-    if (!user) return
+    if (!user) {
+      showMessage('You must be logged in to modify community member counts', 'error')
+      return
+    }
+    
+    console.log('Modifying community members:', { communityId, newMemberCount, userId: user.uid })
+    
+    setSavingCommunities(prev => new Set(prev).add(communityId))
     
     try {
-      await adminModifyCommunityMembers(communityId, user.uid, newMemberCount)
+      const result = await adminModifyCommunityMembers(communityId, user.uid, newMemberCount)
+      console.log('Community modification result:', result)
       
       // Update local state
       setCommunities(prev => prev.map(community => 
@@ -254,7 +263,13 @@ export default function AdminPage() {
       showMessage(`Community member count updated to ${newMemberCount}`, 'success')
     } catch (error) {
       console.error('Error modifying community member count:', error)
-      showMessage('Failed to modify community member count', 'error')
+      showMessage(`Failed to modify community member count: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
+    } finally {
+      setSavingCommunities(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(communityId)
+        return newSet
+      })
     }
   }
 
@@ -398,7 +413,8 @@ export default function AdminPage() {
             { id: 'communities', label: 'Communities', icon: Users },
             { id: 'users', label: 'Users', icon: User },
             { id: 'verifications', label: 'Verifications', icon: CheckCircle },
-            { id: 'fake-stats', label: 'Fake Stats', icon: Settings }
+            { id: 'fake-stats', label: 'Fake Stats', icon: Settings },
+            { id: 'voting-settings', label: 'Voting', icon: TrendingUp }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -443,6 +459,11 @@ export default function AdminPage() {
 
         {/* Content */}
         <div className="space-y-6">
+          <style jsx>{`
+            .card {
+              @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm;
+            }
+          `}</style>
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -542,14 +563,22 @@ export default function AdminPage() {
                                 c.id === community.id ? { ...c, memberCount: newCount } : c
                               ))
                             }}
-                            onBlur={(e) => {
-                              const newCount = parseInt(e.target.value) || 0
-                              if (newCount !== community.memberCount) {
-                                modifyCommunityMembers(community.id, newCount)
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                modifyCommunityMembers(community.id, community.memberCount)
                               }
                             }}
                             className="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                           />
+                          <button
+                            onClick={() => modifyCommunityMembers(community.id, community.memberCount)}
+                            disabled={savingCommunities.has(community.id)}
+                            className="px-2 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Save member count"
+                          >
+                            {savingCommunities.has(community.id) ? 'Saving...' : 'Save'}
+                          </button>
                         </div>
                         <span className="text-sm text-gray-500 dark:text-gray-400">
                           • Created by u/{community.creatorUsername}
@@ -793,6 +822,68 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* Voting Settings Tab */}
+          {activeTab === 'voting-settings' && (
+            <div className="card">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Voting System Settings</h3>
+              </div>
+              <div className="p-6">
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Admin Voting Features:</strong> Admins can use the voting modifier to add multiple votes to posts. 
+                    This feature is available in the post feed for admin users.
+                  </p>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">Admin Voting Controls</h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <h5 className="font-medium text-gray-900 dark:text-white mb-2">How to Use Admin Voting</h5>
+                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                          <li>• Look for the settings icon (⚙️) next to vote buttons on posts</li>
+                          <li>• Click the settings icon to open admin controls</li>
+                          <li>• Set the number of votes you want to add (1-100)</li>
+                          <li>• Click +X to add upvotes or -X to add downvotes</li>
+                          <li>• Use "Remove All Votes" to clear admin votes</li>
+                        </ul>
+                      </div>
+                      
+                      <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <h5 className="font-medium text-gray-900 dark:text-white mb-2">Admin Voting Features</h5>
+                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                          <li>• Multiple votes per action (1-100)</li>
+                          <li>• Instant score updates</li>
+                          <li>• Vote removal capability</li>
+                          <li>• Only available to admin users</li>
+                          <li>• Works on all posts and comments</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">Community Member Inflation</h4>
+                    <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        Use the Communities tab to modify member counts for any community. 
+                        Simply edit the member count field and click "Save" to update the displayed member count.
+                      </p>
+                      <div className="flex items-center space-x-2">
+                        <TrendingUp className="w-4 h-4 text-green-500" />
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          Community member inflation is now working properly
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Setup God User Section */}
@@ -841,16 +932,16 @@ export default function AdminPage() {
 
         {/* Message */}
         {message && (
-          <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+          <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm ${
             messageType === 'success' 
               ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
               : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
           }`}>
             <div className="flex items-center space-x-2">
               {messageType === 'success' ? (
-                <CheckCircle className="w-5 h-5 text-green-500" />
+                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
               ) : (
-                <AlertCircle className="w-5 h-5 text-red-500" />
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
               )}
               <span className={`text-sm font-medium ${
                 messageType === 'success' 

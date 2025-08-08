@@ -57,19 +57,31 @@ export default function AdminVoteButtons({
   }
 
   const handleAdminVote = async (voteType: 'upvote' | 'downvote' | 'remove') => {
-    if (!userId) return
+    if (!userId) {
+      alert('You must be logged in to use admin voting')
+      return
+    }
 
+    console.log('Admin voting:', { postId, userId, voteType, voteCount })
     setIsAdminVoting(true)
+    
     try {
-      await adminVotePost(postId, userId, voteType, voteCount)
-      // Refresh the component by calling the parent's onVote
-      if (voteType !== 'remove') {
-        await onVote(voteType)
-      }
+      const result = await adminVotePost(postId, userId, voteType, voteCount)
+      console.log('Admin vote result:', result)
+      
+      // Trigger a refresh of the post data by calling the parent's refresh function
+      // We pass a dummy vote type since the parent will ignore it and just refresh
+      await onVote('upvote')
+      
       setShowAdminPanel(false)
+      
+      // Show success message
+      const actionText = voteType === 'remove' ? 'removed' : `${voteType === 'upvote' ? 'added' : 'subtracted'} ${voteCount} ${voteType === 'upvote' ? 'upvotes' : 'downvotes'}`
+      console.log(`Successfully ${actionText} for post ${postId}`)
     } catch (error) {
       console.error('Admin vote failed:', error)
-      alert(error instanceof Error ? error.message : 'Admin vote failed')
+      const errorMessage = error instanceof Error ? error.message : 'Admin vote failed'
+      alert(`Admin vote failed: ${errorMessage}`)
     } finally {
       setIsAdminVoting(false)
     }
@@ -189,25 +201,25 @@ export default function AdminVoteButtons({
               <button
                 onClick={() => handleAdminVote('upvote')}
                 disabled={isAdminVoting}
-                className="flex-1 px-2 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded font-medium transition-colors disabled:opacity-50"
+                className="flex-1 px-2 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                +{voteCount}
+                {isAdminVoting ? '...' : `+${voteCount}`}
               </button>
               <button
                 onClick={() => handleAdminVote('downvote')}
                 disabled={isAdminVoting}
-                className="flex-1 px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded font-medium transition-colors disabled:opacity-50"
+                className="flex-1 px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                -{voteCount}
+                {isAdminVoting ? '...' : `-${voteCount}`}
               </button>
             </div>
             
             <button
               onClick={() => handleAdminVote('remove')}
               disabled={isAdminVoting}
-              className="w-full px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded font-medium transition-colors disabled:opacity-50"
+              className="w-full px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Remove All Votes
+              {isAdminVoting ? 'Removing...' : 'Remove All Votes'}
             </button>
           </div>
         </div>

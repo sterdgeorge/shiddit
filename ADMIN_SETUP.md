@@ -72,6 +72,17 @@ Once the admin user is created:
 - **Delete Comments:** Remove inappropriate comments
 - **Bulk Operations:** Delete all user content when banning
 
+### Voting System (NEW!)
+- **Admin Voting Modifier:** Admins can add multiple votes (1-100) to any post
+- **Vote Removal:** Remove all admin votes from posts
+- **Instant Updates:** Score changes are reflected immediately
+- **Settings Panel:** Configure voting behavior in the admin panel
+
+### Community Management
+- **Member Count Inflation:** Modify community member counts directly
+- **Real-time Updates:** Changes are saved immediately
+- **Bulk Operations:** Manage multiple communities efficiently
+
 ### Admin Panel Sections
 
 #### 1. Users Tab
@@ -95,6 +106,53 @@ Once the admin user is created:
 - Author information
 - Delete functionality
 
+#### 5. Communities Tab (ENHANCED!)
+- List of all communities
+- **Member count editing with save button**
+- **Real-time member count updates**
+- Community deletion
+
+#### 6. Voting Settings Tab (NEW!)
+- **Admin voting instructions**
+- **Community inflation guide**
+- **Feature documentation**
+
+## 🎯 How to Use Admin Voting
+
+### Step 1: Access Admin Voting
+1. Log in as an admin user
+2. Navigate to any post in the feed
+3. Look for the settings icon (⚙️) next to the vote buttons
+
+### Step 2: Use Admin Controls
+1. Click the settings icon to open admin controls
+2. Set the number of votes you want to add (1-100)
+3. Click "+X" to add upvotes or "-X" to add downvotes
+4. Use "Remove All Votes" to clear admin votes
+
+### Step 3: Verify Changes
+- Score updates are immediate
+- Changes are permanent in the database
+- Only admins can see and use these controls
+
+## 🏘️ How to Use Community Member Inflation
+
+### Step 1: Access Community Management
+1. Go to the Admin Panel
+2. Click on the "Communities" tab
+3. Find the community you want to modify
+
+### Step 2: Modify Member Count
+1. Click on the member count number
+2. Enter the new member count
+3. Click "Save" or press Enter
+4. The change is applied immediately
+
+### Step 3: Verify Changes
+- Member count updates are instant
+- Changes are reflected across the site
+- No need to refresh the page
+
 ## 🔒 Security Features
 
 ### User Banning System
@@ -110,6 +168,11 @@ When a user is banned:
 - Only users with `isAdmin: true` can access `/admin`
 - Admin status is verified on every admin action
 - All admin actions are logged with admin ID
+
+### Voting Security
+- Only admin users can use voting modifiers
+- Admin votes are tracked and logged
+- Vote removal is available for moderation
 
 ## 📊 Database Structure
 
@@ -142,7 +205,10 @@ When a user is banned:
   content: "Post content",
   createdAt: timestamp,
   likes: 0,
-  comments: 0
+  comments: 0,
+  upvotes: ["user_id1", "user_id2"],    // Array of user IDs who upvoted
+  downvotes: ["user_id3"],              // Array of user IDs who downvoted
+  score: 1                              // Calculated score (upvotes - downvotes)
 }
 ```
 
@@ -154,7 +220,27 @@ When a user is banned:
   authorId: "user_id",
   authorUsername: "username",
   postId: "post_id",
-  createdAt: timestamp
+  createdAt: timestamp,
+  upvotes: ["user_id1"],
+  downvotes: [],
+  score: 1
+}
+```
+
+### Communities Collection
+```javascript
+{
+  id: "community_id",
+  name: "community_name",
+  displayName: "Community Display Name",
+  description: "Community description",
+  creatorId: "user_id",
+  creatorUsername: "username",
+  createdAt: timestamp,
+  memberCount: 150,         // Can be modified by admins
+  postCount: 25,
+  type: "public",
+  nsfw: false
 }
 ```
 
@@ -171,7 +257,12 @@ After setup, immediately change the admin password:
 - Regularly review admin user list
 - Monitor admin actions for suspicious activity
 
-### 3. Backup Strategy
+### 3. Voting Moderation
+- Use admin voting responsibly
+- Monitor for abuse of voting powers
+- Keep logs of admin voting actions
+
+### 4. Backup Strategy
 - Regularly backup your Firestore database
 - Keep admin credentials secure
 - Document all admin actions
@@ -189,6 +280,18 @@ After setup, immediately change the admin password:
 2. Verify admin permissions
 3. Check browser console for errors
 4. Ensure all collections exist
+
+### Voting Modifier Not Working
+1. Verify user has admin privileges
+2. Check browser console for errors
+3. Ensure post exists in database
+4. Check Firestore security rules
+
+### Community Inflation Not Working
+1. Verify admin permissions
+2. Check if save button is clicked
+3. Look for console errors
+4. Ensure community document exists
 
 ### Script Errors
 1. Verify Firebase configuration
@@ -213,6 +316,8 @@ If you encounter issues:
 - [ ] Update admin credentials quarterly
 - [ ] Backup database weekly
 - [ ] Review security logs
+- [ ] Monitor admin voting patterns
+- [ ] Check community member counts
 
 ### Updates
 - Keep Firebase SDK updated
@@ -228,8 +333,28 @@ If you encounter issues:
 - [ ] Access `/admin` panel
 - [ ] Test user banning functionality
 - [ ] Test post/comment deletion
+- [ ] **Test admin voting modifier**
+- [ ] **Test community member inflation**
 - [ ] Change default admin password
 - [ ] Set up backup strategy
 - [ ] Document admin procedures
 
 Your admin system is now ready for production use! 🚀
+
+## 🆕 Recent Updates
+
+### Voting Modifier Fix (Latest)
+- ✅ Admin voting now works properly
+- ✅ Multiple votes can be added (1-100)
+- ✅ Vote removal functionality added
+- ✅ Real-time score updates
+- ✅ Admin-only access controls
+
+### Community Inflation Fix (Latest)
+- ✅ Member count editing with save button
+- ✅ Real-time updates across the site
+- ✅ Enter key support for quick saves
+- ✅ Visual feedback for changes
+- ✅ Proper error handling
+
+Both features are now fully functional and ready for use!
