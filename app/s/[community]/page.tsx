@@ -39,6 +39,7 @@ interface Community {
   creatorUsername: string
   createdAt: Date
   memberCount: number
+  imageUrl?: string
 }
 
 export default function CommunityPage() {
@@ -81,13 +82,15 @@ export default function CommunityPage() {
         const communityInfo: Community = {
           id: communityDoc.id,
           name: communityData.name,
-          displayName: communityData.displayName,
+          displayName: communityData.displayName || communityData.name,
           description: communityData.description,
           creatorId: communityData.creatorId,
           creatorUsername: communityData.creatorUsername,
           createdAt: communityData.createdAt?.toDate() || new Date(),
-          memberCount: communityData.memberCount || 0
+          memberCount: communityData.memberCount || 0,
+          imageUrl: communityData.imageUrl
         }
+        console.log('Community info:', communityInfo)
         setCommunity(communityInfo)
 
         // Fetch posts from this community (case-insensitive)
@@ -140,7 +143,10 @@ export default function CommunityPage() {
     const checkMembership = async () => {
       if (user && community) {
         try {
+          console.log('Checking membership for user:', user.uid, 'in community:', community.id)
+          console.log('Community data:', community)
           const membership = await isCommunityMember(community.id, user.uid)
+          console.log('Membership result:', membership)
           setIsMember(membership)
         } catch (error) {
           console.error('Error checking membership:', error)
@@ -161,7 +167,9 @@ export default function CommunityPage() {
 
     setJoining(true)
     try {
+      console.log('Joining community:', community.id, 'for user:', user.uid)
       await joinCommunity(community.id, user.uid, user.displayName || user.email?.split('@')[0] || 'Anonymous')
+      console.log('Successfully joined community')
       setIsMember(true)
       setCommunity(prev => prev ? { ...prev, memberCount: prev.memberCount + 1 } : null)
       alert('Successfully joined the community!')
@@ -212,12 +220,24 @@ export default function CommunityPage() {
         <div className="card p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-primary-500 rounded-lg flex items-center justify-center">
-                <Hash className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-orange-500 rounded-lg flex items-center justify-center overflow-hidden">
+                {community.imageUrl ? (
+                  <img
+                    src={community.imageUrl}
+                    alt={community.displayName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Hide the image and show the hash icon if it fails to load
+                      e.currentTarget.style.display = 'none'
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                    }}
+                  />
+                ) : null}
+                <Hash className={`w-8 h-8 text-white ${community.imageUrl ? 'hidden' : ''}`} />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  s/{community.displayName}
+                  s/{community.name}
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
                   {community.description}
@@ -264,7 +284,7 @@ export default function CommunityPage() {
               No posts yet
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Be the first to share something in s/{community.displayName}!
+              Be the first to share something in s/{community.name}!
             </p>
             {isMember ? (
               <Link href="/create-post">
