@@ -14,6 +14,7 @@ interface Post {
   id: string
   title: string
   content: string
+  authorId: string
   authorUsername: string
   communityName: string
   createdAt: any
@@ -70,6 +71,7 @@ export default function PostPage() {
         id: postDoc.id,
         title: data.title,
         content: data.content,
+        authorId: data.authorId,
         authorUsername: data.authorUsername,
         communityName: data.communityName,
         createdAt: data.createdAt,
