@@ -6,9 +6,9 @@ import { useLogin } from '@/components/providers/LoginProvider'
 import MainLayout from '@/components/layout/MainLayout'
 import { ArrowLeftRight, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react'
 
-const TOKEN_CONTRACT_ADDRESS = 'ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS'
-const JUPITER_IFRAME_URL = 'https://jup.ag/swap/SOL-ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS?inputMint=So11111111111111111111111111111111111111112&outputMint=ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS'
-const STORE_ADDRESS = 'ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS'
+const TOKEN_CONTRACT_ADDRESS = 'TBA'
+const JUPITER_IFRAME_URL = 'https://jup.ag/swap/SOL-TBA?inputMint=So11111111111111111111111111111111111111112&outputMint=TBA'
+const STORE_ADDRESS = 'TBA'
 
 export default function SwapPage() {
   const { user } = useAuth()
@@ -60,7 +60,7 @@ export default function SwapPage() {
             </h1>
           </div>
           <p className="text-gray-600 dark:text-gray-400">
-            Swap SOL and other tokens for $SHIDDIT using Jupiter
+            Swap SOL and other tokens for $SHIT using Jupiter
           </p>
         </div>
 
@@ -69,7 +69,7 @@ export default function SwapPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                $SHIDDIT Token
+                $SHIT Token
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                 Contract Address: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono">
@@ -175,7 +175,7 @@ export default function SwapPage() {
                 Step 2: Select Tokens
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Choose the token you want to swap from (like SOL) and $SHIDDIT as the token you want to receive.
+                Choose the token you want to swap from (like SOL) and $SHIT as the token you want to receive.
               </p>
             </div>
             <div>
@@ -183,7 +183,7 @@ export default function SwapPage() {
                 Step 3: Enter Amount
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Enter the amount you want to swap. The interface will show you the estimated $SHIDDIT you'll receive.
+                Enter the amount you want to swap. The interface will show you the estimated $SHIT you'll receive.
               </p>
             </div>
             <div>

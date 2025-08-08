@@ -20,7 +20,7 @@ export default function Navbar() {
 
   const handleCopyCA = async () => {
     try {
-      await copyToClipboard('TESTTEST')
+      await copyToClipboard('TBA')
       // You could add a toast notification here
     } catch (error) {
       console.error('Failed to copy:', error)
@@ -39,7 +39,7 @@ export default function Navbar() {
 
      return (
      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-sm">
-       <div className="w-full px-4 sm:px-6 lg:px-8">
+       <div className="w-full px-2 sm:px-4 lg:px-8">
          <div className="flex justify-between items-center h-14">
            {/* Logo - Far Left */}
            <div className="flex items-center">
@@ -47,14 +47,14 @@ export default function Navbar() {
                <img 
                  src="/icon.jpg" 
                  alt="shiddit Logo" 
-                 className="w-8 h-8 rounded-lg object-cover"
+                 className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg object-cover"
                />
-                               <span className="text-xl font-bold text-gray-900 dark:text-white">shiddit</span>
+               <span className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">shiddit</span>
              </Link>
            </div>
 
            {/* Search Bar - Center */}
-           <div className="absolute left-1/2 transform -translate-x-1/2 px-4 w-[800px]">
+           <div className="absolute left-1/2 transform -translate-x-1/2 px-2 sm:px-4 w-full max-w-md lg:max-w-lg xl:max-w-xl">
              <div className="relative w-full">
                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                <input
@@ -68,8 +68,8 @@ export default function Navbar() {
            </div>
 
            {/* Right Side - Far Right */}
-           <div className="flex items-center space-x-2">
-                         {/* Theme Toggle */}
+           <div className="flex items-center space-x-1 sm:space-x-2">
+             {/* Theme Toggle */}
              <button
                onClick={toggleTheme}
                className="p-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
@@ -144,16 +144,16 @@ export default function Navbar() {
                 )}
               </div>
                            ) : (
-                 <div className="flex items-center space-x-2">
+                 <div className="flex items-center space-x-1 sm:space-x-2">
                    <button
                      onClick={handleCopyCA}
-                     className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium text-sm whitespace-nowrap px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                     className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                    >
                      Copy CA
                    </button>
                    <button
                      onClick={showLoginPopup}
-                                           className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-sm"
+                     className="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap text-xs sm:text-sm"
                    >
                      Log In
                    </button>

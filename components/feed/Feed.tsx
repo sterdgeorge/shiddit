@@ -47,27 +47,9 @@ export default function Feed() {
     )
   }
 
-  const handleClearPosts = () => {
-    // This function is no longer needed since we're using Firebase
-    // Posts are managed through the database
-    console.log('Clear posts function removed - using Firebase now')
-  }
-
   return (
     <div className="w-full">
       <FeedSort currentSort={sortBy} onSortChange={setSortBy} />
-      
-      {/* Temporary clear button for development */}
-      {posts.length > 0 && (
-        <div className="mb-4">
-          <button
-            onClick={handleClearPosts}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            Clear All Posts (Dev)
-          </button>
-        </div>
-      )}
       
       <div className="space-y-2">
         {posts.map((post) => (

@@ -146,89 +146,90 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
       "post-card mb-2",
       post.isPinned && "border-l-4 border-l-orange-500"
     )}>
-      <div className="p-4">
-                               {/* Header */}
-          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-2">
-            <div className="flex items-center gap-1.5">
-              {showCommunity && (
-                <>
-                  <Link 
-                    href={`/s/${post.communityName}`}
-                    className="font-medium text-gray-900 dark:text-gray-100 hover:underline"
-                  >
-                    s/{post.communityName}
-                  </Link>
-                  <span>•</span>
-                </>
-              )}
-              <span>Posted by</span>
-              <Link 
-                href={`/user/${post.authorUsername}`}
-                className="hover:underline"
-              >
-                u/{post.authorUsername}
-              </Link>
-              <span>•</span>
-              <span>{formatTime(post.createdAt)}</span>
-              {post.isPinned && (
-                <>
-                  <span>•</span>
-                  <span className="text-orange-500 font-medium">Pinned</span>
-                </>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-medium transition-colors">
-                Join
-              </button>
-              <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-            </div>
+      <div className="p-3 sm:p-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2 gap-2">
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+            {showCommunity && (
+              <>
+                <Link 
+                  href={`/s/${post.communityName}`}
+                  className="font-medium text-gray-900 dark:text-gray-100 hover:underline"
+                >
+                  s/{post.communityName}
+                </Link>
+                <span>•</span>
+              </>
+            )}
+            <span>Posted by</span>
+            <Link 
+              href={`/user/${post.authorUsername}`}
+              className="hover:underline"
+            >
+              u/{post.authorUsername}
+            </Link>
+            <span>•</span>
+            <span>{formatTime(post.createdAt)}</span>
+            {post.isPinned && (
+              <>
+                <span>•</span>
+                <span className="text-orange-500 font-medium">Pinned</span>
+              </>
+            )}
           </div>
+          <div className="flex items-center gap-2">
+            <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors">
+              Join
+            </button>
+            <button className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
-                    {/* Title */}
-          <Link href={`/s/${post.communityName}/comments/${post.id}`}>
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 mb-2">
-              {post.title}
-            </h2>
-          </Link>
+        {/* Title */}
+        <Link href={`/s/${post.communityName}/comments/${post.id}`}>
+          <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 mb-2">
+            {post.title}
+          </h2>
+        </Link>
 
           {/* Content */}
           {renderContent()}
 
-          {/* Footer */}
-          <div className="flex items-center gap-6 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <VoteButtons
-              score={post.score}
-              upvotes={post.upvotes}
-              downvotes={post.downvotes}
-              userId={user?.uid}
-              onVote={handleVote}
-              size="sm"
-              orientation="horizontal"
-            />
-            
-            <Link 
-              href={`/s/${post.communityName}/comments/${post.id}`}
-              className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-base"
-            >
-              <Hash className="w-4 h-4" />
-              <span>{post.commentCount} Comments</span>
-            </Link>
-            
-            <button 
-              onClick={() => {
-                const url = `${window.location.origin}/s/${post.communityName}/comments/${post.id}`
-                navigator.clipboard.writeText(url)
-                // You could add a toast notification here
-              }}
-              className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-base"
-            >
-              <Share className="w-4 h-4" />
-              <span>Share</span>
-            </button>
-          </div>
+        {/* Footer */}
+        <div className="flex items-center gap-3 sm:gap-6 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <VoteButtons
+            score={post.score}
+            upvotes={post.upvotes}
+            downvotes={post.downvotes}
+            userId={user?.uid}
+            onVote={handleVote}
+            size="sm"
+            orientation="horizontal"
+          />
+          
+          <Link 
+            href={`/s/${post.communityName}/comments/${post.id}`}
+            className="flex items-center gap-1 sm:gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm sm:text-base"
+          >
+            <Hash className="w-4 h-4" />
+            <span className="hidden sm:inline">{post.commentCount} Comments</span>
+            <span className="sm:hidden">{post.commentCount}</span>
+          </Link>
+          
+          <button 
+            onClick={() => {
+              const url = `${window.location.origin}/s/${post.communityName}/comments/${post.id}`
+              navigator.clipboard.writeText(url)
+              // You could add a toast notification here
+            }}
+            className="flex items-center gap-1 sm:gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm sm:text-base"
+          >
+            <Share className="w-4 h-4" />
+            <span className="hidden sm:inline">Share</span>
+          </button>
+        </div>
         </div>
       </div>
     )

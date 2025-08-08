@@ -4,6 +4,7 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
+import MobileNav from './MobileNav'
 import PopularCommunities from './PopularCommunities'
 import Footer from './Footer'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -32,20 +33,21 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <div className="flex flex-1">
         <Sidebar />
         <div className="flex-1 flex justify-center">
-          <main className="w-full max-w-2xl p-4 pt-2">
+          <main className="w-full max-w-2xl p-2 sm:p-4 pt-2 pb-20 md:pb-2">
             {user && !isEmailVerified && (
               <EmailVerificationBanner email={user.email || ''} />
             )}
             {children}
           </main>
         </div>
-        <div className="w-80 p-4 hidden lg:block fixed top-12" style={{ left: 'calc(50% + 336px)' }}>
+        <div className="w-80 p-4 hidden xl:block fixed top-12" style={{ left: 'calc(50% + 336px)' }}>
           <PopularCommunities />
         </div>
-        <div className="w-80 p-4 hidden lg:block fixed bottom-4" style={{ left: 'calc(50% + 336px)' }}>
+        <div className="w-80 p-4 hidden xl:block fixed bottom-4" style={{ left: 'calc(50% + 336px)' }}>
           <Footer />
         </div>
       </div>
+      <MobileNav />
       <LoginPopup isOpen={isLoginOpen} onClose={hideLoginPopup} />
     </div>
   )

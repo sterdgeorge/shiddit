@@ -117,13 +117,31 @@ export const loginUser = async (emailOrUsername: string, password: string) => {
   try {
     console.log('Login attempt:', { emailOrUsername, isAdminEmail: emailOrUsername === ADMIN_CREDENTIALS.EMAIL })
     
+    // Check if input is a username (not an email)
+    const isUsername = !emailOrUsername.includes('@')
+    
+    let email = emailOrUsername
+    
+    // If it's a username, look up the email
+    if (isUsername) {
+      const usernameDoc = await getDoc(doc(db, 'usernames', emailOrUsername.toLowerCase()))
+      if (!usernameDoc.exists()) {
+        throw new Error('Username not found')
+      }
+      const userDoc = await getDoc(doc(db, 'users', usernameDoc.data().uid))
+      if (!userDoc.exists()) {
+        throw new Error('User not found')
+      }
+      email = userDoc.data().email
+    }
+    
     // Check for admin login (local testing only)
-    if (emailOrUsername === ADMIN_CREDENTIALS.EMAIL && password === ADMIN_CREDENTIALS.PASSWORD) {
+    if (email === ADMIN_CREDENTIALS.EMAIL && password === ADMIN_CREDENTIALS.PASSWORD) {
       console.log('Admin login detected, attempting to sign in...')
       
       // Try to sign in first
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, emailOrUsername, password)
+        const userCredential = await signInWithEmailAndPassword(auth, email, password)
         console.log('Admin user signed in successfully')
         
         // Ensure admin status is set
@@ -138,7 +156,7 @@ export const loginUser = async (emailOrUsername: string, password: string) => {
         // If admin user doesn't exist, create it
         if (error.code === 'auth/user-not-found') {
           console.log('Admin user not found, creating new admin user...')
-          const adminUser = await registerUser(emailOrUsername, password, ADMIN_CREDENTIALS.USERNAME)
+          const adminUser = await registerUser(email, password, ADMIN_CREDENTIALS.USERNAME)
           // Mark as admin
           await setDoc(doc(db, 'users', adminUser.uid), {
             isAdmin: true
@@ -152,7 +170,7 @@ export const loginUser = async (emailOrUsername: string, password: string) => {
           console.log('Wrong password for admin user, creating new admin user...')
           // Delete the existing user and create a new one
           try {
-            const adminUser = await registerUser(emailOrUsername, password, ADMIN_CREDENTIALS.USERNAME)
+            const adminUser = await registerUser(email, password, ADMIN_CREDENTIALS.USERNAME)
             await setDoc(doc(db, 'users', adminUser.uid), {
               isAdmin: true
             }, { merge: true })
@@ -172,24 +190,7 @@ export const loginUser = async (emailOrUsername: string, password: string) => {
     
     console.log('Regular user login attempt...')
     
-    // Check if input is email or username
-    const isEmail = emailOrUsername.includes('@')
-    let actualEmail = emailOrUsername
-    
-    if (!isEmail) {
-      // It's a username, find the corresponding email
-      const usernameDoc = await getDoc(doc(db, 'usernames', emailOrUsername.toLowerCase()))
-      if (!usernameDoc.exists()) {
-        throw new Error('No account found with this username')
-      }
-      const userDoc = await getDoc(doc(db, 'users', usernameDoc.data().uid))
-      if (!userDoc.exists()) {
-        throw new Error('User account not found')
-      }
-      actualEmail = userDoc.data().email
-    }
-    
-    const userCredential = await signInWithEmailAndPassword(auth, actualEmail, password)
+    const userCredential = await signInWithEmailAndPassword(auth, email, password)
     return userCredential.user
   } catch (error) {
     console.error('Login error:', error)
