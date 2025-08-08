@@ -28,20 +28,38 @@ service cloud.firestore {
     match /communities/{communityId} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow update: if request.auth != null && request.auth.uid == resource.data.createdBy;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.createdBy;
+      allow update: if request.auth != null && request.auth.uid == resource.data.creatorId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorId;
     }
     
-    // Messages can only be read/written by participants
-    match /messages/{messageId} {
-      allow read, write: if request.auth != null && 
-        request.auth.uid in resource.data.participants;
+    // Community memberships - users can read their own memberships and join/leave communities
+    match /communityMembers/{membershipId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || 
+         request.auth.uid == resource.data.communityId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     
-    // Conversations can only be read/written by participants
-    match /conversations/{conversationId} {
-      allow read, write: if request.auth != null && 
-        request.auth.uid in resource.data.participants;
+    // Comments can be read by anyone, written by authenticated users
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+        (request.auth.uid == resource.data.authorId || 
+         request.auth.uid in resource.data.upvotes || 
+         request.auth.uid in resource.data.downvotes);
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
     }
+    
+    // Tokens can be read by anyone, created by authenticated users
+    match /tokens/{tokenId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.auth.uid == resource.data.creatorId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorId;
+    }
+
   }
 } 

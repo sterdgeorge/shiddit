@@ -9,7 +9,7 @@ A modern, Reddit-style social media platform built with Next.js 13+, TypeScript,
 - **Dynamic Community Pages** - `/s/[community]` for community-specific content
 - **Leaderboard** - Top 10 most liked posts at `/leaderboard`
 - **User Authentication** - Email/password with Firebase Auth
-- **Messaging System** - Real-time user-to-user messaging
+
 - **Post Creation** - Create posts with title, content, and community selection
 - **Community Creation** - Create new communities with custom names and descriptions
 - **User Profiles** - Public profiles at `/user/[username]`
@@ -49,7 +49,7 @@ app-shiddit/
 │   ├── login/                   # Authentication pages
 │   ├── register/
 │   ├── leaderboard/             # Top posts
-│   ├── messages/                # Messaging system
+
 │   ├── settings/                # User settings
 │   ├── create-post/             # Post creation
 │   ├── create-community/        # Community creation
@@ -149,18 +149,7 @@ app-shiddit/
          allow write: if request.auth != null;
        }
        
-       // Messages between users
-       match /messages/{messageId} {
-         allow read, write: if request.auth != null && 
-           (resource.data.senderId == request.auth.uid || 
-            resource.data.receiverId == request.auth.uid);
-       }
-       
-       // Conversations
-       match /conversations/{conversationId} {
-         allow read, write: if request.auth != null && 
-           request.auth.uid in resource.data.participants;
-       }
+
      }
    }
    ```
@@ -179,7 +168,7 @@ app-shiddit/
 1. **Register** - Create an account with email, password, and unique username
 2. **Browse** - View the feed, explore communities, and check the leaderboard
 3. **Interact** - Like posts, create posts, and join conversations
-4. **Connect** - Message other users and build your network
+4. **Connect** - Join communities and interact with other users
 5. **Customize** - Toggle themes and update your profile
 
 ### For Developers

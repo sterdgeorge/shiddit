@@ -4,13 +4,15 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc, increment } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc, updateDoc, increment } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import rateLimiter, { RATE_LIMITS } from '@/lib/rateLimit'
+import { uploadPostMedia, getRemainingMediaUploads } from '@/lib/postMedia'
 import MainLayout from '@/components/layout/MainLayout'
 import Button from '@/components/ui/Button'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import RequireVerification from '@/components/auth/RequireVerification'
-import { MessageSquare, Image, Link, BarChart3, AlertCircle, Users, X } from 'lucide-react'
+import { MessageSquare, Image, Link, BarChart3, AlertCircle, Users, X, Upload, Video, FileImage } from 'lucide-react'
 
 interface Community {
   id: string
@@ -28,13 +30,10 @@ interface PostForm {
   communityId: string
   title: string
   content: string
-  type: 'text' | 'image' | 'link' | 'poll'
   imageUrl?: string
-  linkUrl?: string
+  videoUrl?: string
   pollOptions?: string[]
   pollDuration?: number
-  nsfw: boolean
-  spoiler: boolean
 }
 
 interface ValidationErrors {
@@ -57,27 +56,27 @@ export default function CreatePostPage() {
   const [form, setForm] = useState<PostForm>({
     communityId: searchParams.get('community') || '',
     title: '',
-    content: '',
-    type: 'text',
-    nsfw: false,
-    spoiler: false
+    content: ''
   })
   
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<ValidationErrors>({})
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null)
   const [showCommunitySelect, setShowCommunitySelect] = useState(false)
-
-  // Rate limiting
-  const [lastPostTime, setLastPostTime] = useState<Date | null>(null)
-  const MAX_POSTS_PER_HOUR = 10
+  const [uploadingMedia, setUploadingMedia] = useState(false)
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null)
+  const [mediaFile, setMediaFile] = useState<File | null>(null)
 
   // Check if user can create posts
   const canCreatePost = () => {
-    if (!lastPostTime) return true
+    if (!user) return false
     
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
-    return lastPostTime < oneHourAgo
+    const rateLimitKey = `post_creation_${user.uid}`
+    return rateLimiter.checkRateLimit(
+      rateLimitKey,
+      RATE_LIMITS.POST_CREATION.maxActions,
+      RATE_LIMITS.POST_CREATION.windowMs
+    )
   }
 
   // Fetch user's communities
@@ -94,31 +93,38 @@ export default function CreatePostPage() {
         const snapshot = await getDocs(membersQuery)
         const communityIds = snapshot.docs.map(doc => doc.data().communityId)
         
-        if (communityIds.length === 0) return
+        console.log('User community memberships:', communityIds)
+        
+        if (communityIds.length === 0) {
+          console.log('No community memberships found for user')
+          return
+        }
         
         const communitiesData: Community[] = []
         for (const communityId of communityIds) {
-          const communityDoc = await getDocs(query(
-            collection(db, 'communities'),
-            where('__name__', '==', communityId)
-          ))
-          
-          if (!communityDoc.empty) {
-            const data = communityDoc.docs[0].data()
-            communitiesData.push({
-              id: communityDoc.docs[0].id,
-              name: data.name,
-              displayName: data.displayName,
-              description: data.description,
-              type: data.type,
-              nsfw: data.nsfw,
-              allowImages: data.allowImages,
-              allowLinks: data.allowLinks,
-              allowPolls: data.allowPolls
-            })
+          try {
+            const communityDoc = await getDoc(doc(db, 'communities', communityId))
+            
+            if (communityDoc.exists()) {
+              const data = communityDoc.data()
+              communitiesData.push({
+                id: communityDoc.id,
+                name: data.name,
+                displayName: data.displayName,
+                description: data.description,
+                type: data.type || 'public',
+                nsfw: data.nsfw || false,
+                allowImages: data.allowImages !== false,
+                allowLinks: data.allowLinks !== false,
+                allowPolls: data.allowPolls !== false
+              })
+            }
+          } catch (error) {
+            console.error('Error fetching community:', communityId, error)
           }
         }
         
+        console.log('Found communities for user:', communitiesData.map(c => c.name))
         setCommunities(communitiesData)
         
         // Set selected community if provided in URL
@@ -152,34 +158,14 @@ export default function CreatePostPage() {
       newErrors.title = 'Title must be 300 characters or less'
     }
 
-    if (form.type === 'text' && !form.content.trim()) {
-      newErrors.content = 'Content is required for text posts'
-    } else if (form.type === 'text' && form.content.length > 40000) {
+    if (!form.content.trim()) {
+      newErrors.content = 'Content is required'
+    } else if (form.content.length > 40000) {
       newErrors.content = 'Content must be 40,000 characters or less'
     }
 
-    if (form.type === 'image' && !form.imageUrl?.trim()) {
-      newErrors.imageUrl = 'Image URL is required for image posts'
-    } else if (form.type === 'image' && form.imageUrl) {
-      try {
-        new URL(form.imageUrl)
-      } catch {
-        newErrors.imageUrl = 'Please enter a valid image URL'
-      }
-    }
-
-    if (form.type === 'link' && !form.linkUrl?.trim()) {
-      newErrors.linkUrl = 'Link URL is required for link posts'
-    } else if (form.type === 'link' && form.linkUrl) {
-      try {
-        new URL(form.linkUrl)
-      } catch {
-        newErrors.linkUrl = 'Please enter a valid URL'
-      }
-    }
-
-    if (form.type === 'poll') {
-      if (!form.pollOptions || form.pollOptions.length < 2) {
+    if (form.pollOptions && form.pollOptions.length > 0) {
+      if (form.pollOptions.length < 2) {
         newErrors.pollOptions = 'Poll must have at least 2 options'
       } else if (form.pollOptions.length > 6) {
         newErrors.pollOptions = 'Poll can have maximum 6 options'
@@ -217,6 +203,53 @@ export default function CreatePostPage() {
     handleInputChange('pollOptions', newOptions)
   }
 
+  const handleMediaUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || !event.target.files[0] || !user) return
+
+    const file = event.target.files[0]
+    setUploadingMedia(true)
+    setErrors({})
+
+    try {
+      // Create a temporary post ID for upload
+      const tempPostId = `temp_${Date.now()}_${Math.random().toString(36).substring(2)}`
+      
+      const result = await uploadPostMedia(user.uid, tempPostId, file)
+      
+      if (result.success && result.url) {
+        setMediaFile(file)
+        setMediaPreview(result.url)
+        
+        // Determine if it's a video or image based on file type
+        const isVideo = file.type.startsWith('video/')
+        
+        setForm(prev => ({
+          ...prev,
+          imageUrl: isVideo ? undefined : result.url,
+          videoUrl: isVideo ? result.url : undefined
+        }))
+        setErrors({})
+      } else {
+        setErrors({ imageUrl: result.error || 'Failed to upload media' })
+      }
+    } catch (error) {
+      console.error('Error uploading media:', error)
+      setErrors({ imageUrl: 'Failed to upload media. Please try again.' })
+    } finally {
+      setUploadingMedia(false)
+    }
+  }
+
+  const handleRemoveMedia = () => {
+    setMediaFile(null)
+    setMediaPreview(null)
+    setForm(prev => ({
+      ...prev,
+      imageUrl: undefined,
+      videoUrl: undefined
+    }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -227,7 +260,13 @@ export default function CreatePostPage() {
 
     // Security checks
     if (!canCreatePost()) {
-      setErrors({ general: 'You can only create 10 posts per hour. Please wait before creating another.' })
+      const rateLimitKey = `post_creation_${user.uid}`
+      const remainingTime = rateLimiter.getTimeUntilReset(
+        rateLimitKey,
+        RATE_LIMITS.POST_CREATION.windowMs
+      )
+      const minutes = Math.ceil(remainingTime / (60 * 1000))
+      setErrors({ general: `You can only create ${RATE_LIMITS.POST_CREATION.maxActions} posts per hour. Please wait ${minutes} minutes before creating another.` })
       return
     }
 
@@ -264,13 +303,11 @@ export default function CreatePostPage() {
       // Create post
       const postData: any = {
         title: form.title.trim(),
+        content: form.content.trim(),
         authorId: user.uid,
         authorUsername: userProfile.username,
         communityId: selectedCommunity.id,
         communityName: selectedCommunity.name,
-        type: form.type,
-        nsfw: form.nsfw || selectedCommunity.nsfw,
-        spoiler: form.spoiler,
         createdAt: serverTimestamp(),
         likes: 0,
         comments: 0,
@@ -282,15 +319,15 @@ export default function CreatePostPage() {
         lastActivity: serverTimestamp()
       }
 
-      // Add type-specific data
-      if (form.type === 'text') {
-        postData.content = form.content.trim()
-      } else if (form.type === 'image') {
-        postData.imageUrl = form.imageUrl?.trim()
-      } else if (form.type === 'link') {
-        postData.linkUrl = form.linkUrl?.trim()
-      } else if (form.type === 'poll') {
-        postData.pollOptions = form.pollOptions?.map(option => ({
+      // Add optional media and poll data
+      if (form.imageUrl) {
+        postData.imageUrl = form.imageUrl.trim()
+      }
+      if (form.videoUrl) {
+        postData.videoUrl = form.videoUrl.trim()
+      }
+      if (form.pollOptions && form.pollOptions.length > 0) {
+        postData.pollOptions = form.pollOptions.map(option => ({
           text: option.trim(),
           votes: 0
         }))
@@ -305,8 +342,7 @@ export default function CreatePostPage() {
         lastActivity: serverTimestamp()
       })
 
-      // Update rate limiting
-      setLastPostTime(new Date())
+      // Rate limiting is handled by the rateLimiter utility
 
       // Redirect to the new post
       router.push(`/s/${selectedCommunity.name}/comments/${postRef.id}`)
@@ -438,276 +474,222 @@ export default function CreatePostPage() {
             </div>
           </div>
 
-          {/* Post Type Selection */}
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Post Type
-            </h2>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <button
-                type="button"
-                onClick={() => handleInputChange('type', 'text')}
-                className={`p-3 border rounded-lg text-center transition-colors ${
-                  form.type === 'text'
-                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                <MessageSquare className="w-6 h-6 mx-auto mb-2 text-orange-500" />
-                <div className="text-sm font-medium">Text</div>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => handleInputChange('type', 'image')}
-                                 disabled={selectedCommunity ? !selectedCommunity.allowImages : false}
-                className={`p-3 border rounded-lg text-center transition-colors ${
-                  form.type === 'image'
-                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                } ${selectedCommunity && !selectedCommunity.allowImages ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <Image className="w-6 h-6 mx-auto mb-2 text-orange-500" />
-                <div className="text-sm font-medium">Image</div>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => handleInputChange('type', 'link')}
-                                 disabled={selectedCommunity ? !selectedCommunity.allowLinks : false}
-                className={`p-3 border rounded-lg text-center transition-colors ${
-                  form.type === 'link'
-                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                } ${selectedCommunity && !selectedCommunity.allowLinks ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <Link className="w-6 h-6 mx-auto mb-2 text-orange-500" />
-                <div className="text-sm font-medium">Link</div>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => handleInputChange('type', 'poll')}
-                                 disabled={selectedCommunity ? !selectedCommunity.allowPolls : false}
-                className={`p-3 border rounded-lg text-center transition-colors ${
-                  form.type === 'poll'
-                    ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                } ${selectedCommunity && !selectedCommunity.allowPolls ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <BarChart3 className="w-6 h-6 mx-auto mb-2 text-orange-500" />
-                <div className="text-sm font-medium">Poll</div>
-              </button>
-            </div>
-          </div>
+                     {/* Title */}
+           <div className="card p-6">
+             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+               Title
+             </h2>
+             
+             <input
+               type="text"
+               value={form.title}
+               onChange={(e) => handleInputChange('title', e.target.value)}
+               className="input-field"
+               placeholder="Enter your post title..."
+               maxLength={300}
+             />
+             
+             {errors.title && (
+               <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-2">
+                 <AlertCircle className="w-4 h-4" />
+                 <span>{errors.title}</span>
+               </p>
+             )}
+             
+             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+               {form.title.length}/300 characters
+             </p>
+           </div>
 
-          {/* Title */}
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Title
-            </h2>
-            
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => handleInputChange('title', e.target.value)}
-              className="input-field"
-              placeholder="Enter your post title..."
-              maxLength={300}
-            />
-            
-            {errors.title && (
-              <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-2">
-                <AlertCircle className="w-4 h-4" />
-                <span>{errors.title}</span>
-              </p>
-            )}
-            
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {form.title.length}/300 characters
-            </p>
-          </div>
+           {/* Body */}
+           <div className="card p-6">
+             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+               Body
+             </h2>
+             
+             <textarea
+               value={form.content}
+               onChange={(e) => handleInputChange('content', e.target.value)}
+               rows={8}
+               maxLength={40000}
+               className="input-field resize-none"
+               placeholder="What's on your mind? You can include links in your text."
+             />
+             
+             {errors.content && (
+               <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-2">
+                 <AlertCircle className="w-4 h-4" />
+                 <span>{errors.content}</span>
+               </p>
+             )}
+             
+             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+               {form.content.length}/40,000 characters
+             </p>
+           </div>
 
-          {/* Content based on type */}
-          {form.type === 'text' && (
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Content
-              </h2>
-              
-              <textarea
-                value={form.content}
-                onChange={(e) => handleInputChange('content', e.target.value)}
-                rows={8}
-                maxLength={40000}
-                className="input-field resize-none"
-                placeholder="What's on your mind?"
-              />
-              
-              {errors.content && (
-                <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-2">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.content}</span>
-                </p>
-              )}
-              
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {form.content.length}/40,000 characters
-              </p>
-            </div>
-          )}
+           {/* Media Upload */}
+           <div className="card p-6">
+             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+               Add Media (Optional)
+             </h2>
+             
+             <div className="space-y-4">
+               {/* Media Preview */}
+               {mediaPreview && (
+                 <div className="relative">
+                   {mediaFile?.type.startsWith('video/') ? (
+                     <video 
+                       src={mediaPreview} 
+                       controls 
+                       className="w-full max-h-96 rounded-lg"
+                     />
+                   ) : (
+                     <img 
+                       src={mediaPreview} 
+                       alt="Preview" 
+                       className="w-full max-h-96 object-contain rounded-lg"
+                     />
+                   )}
+                   <button
+                     type="button"
+                     onClick={handleRemoveMedia}
+                     className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full transition-colors"
+                   >
+                     <X className="w-4 h-4" />
+                   </button>
+                 </div>
+               )}
 
-          {form.type === 'image' && (
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Image URL
-              </h2>
-              
-              <input
-                type="url"
-                value={form.imageUrl || ''}
-                onChange={(e) => handleInputChange('imageUrl', e.target.value)}
-                className="input-field"
-                placeholder="https://example.com/image.jpg"
-              />
-              
-              {errors.imageUrl && (
-                <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-2">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.imageUrl}</span>
-                </p>
-              )}
-            </div>
-          )}
+               {/* Upload Section */}
+               {!mediaPreview && (
+                 <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                   <div className="space-y-4">
+                     <div className="flex justify-center space-x-4">
+                       <div className="flex items-center space-x-2">
+                         <FileImage className="w-6 h-6 text-orange-500" />
+                         <span className="text-sm font-medium">Images</span>
+                       </div>
+                       <div className="flex items-center space-x-2">
+                         <Video className="w-6 h-6 text-orange-500" />
+                         <span className="text-sm font-medium">Videos</span>
+                       </div>
+                     </div>
+                     
+                     <div>
+                       <button
+                         type="button"
+                         onClick={() => document.getElementById('media-upload')?.click()}
+                         disabled={uploadingMedia}
+                         className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center space-x-2 mx-auto"
+                       >
+                         {uploadingMedia ? (
+                           <LoadingSpinner />
+                         ) : (
+                           <Upload className="w-4 h-4" />
+                         )}
+                         <span>{uploadingMedia ? 'Uploading...' : 'Upload Media'}</span>
+                       </button>
+                     </div>
+                     
+                     <p className="text-sm text-gray-500 dark:text-gray-400">
+                       Supports JPEG, PNG, GIF, WebP, MP4, WebM, OGG • Max 10MB images, 50MB videos • Videos up to 10 seconds
+                     </p>
+                     
+                     {user && (
+                       <p className="text-xs text-gray-400 dark:text-gray-500">
+                         {getRemainingMediaUploads(user.uid)} uploads remaining this hour
+                       </p>
+                     )}
+                   </div>
+                 </div>
+               )}
 
-          {form.type === 'link' && (
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Link URL
-              </h2>
-              
-              <input
-                type="url"
-                value={form.linkUrl || ''}
-                onChange={(e) => handleInputChange('linkUrl', e.target.value)}
-                className="input-field"
-                placeholder="https://example.com"
-              />
-              
-              {errors.linkUrl && (
-                <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-2">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.linkUrl}</span>
-                </p>
-              )}
-            </div>
-          )}
+               {/* Hidden file input */}
+               <input
+                 id="media-upload"
+                 type="file"
+                 accept="image/*,video/*"
+                 onChange={handleMediaUpload}
+                 className="hidden"
+                 disabled={uploadingMedia}
+               />
+             </div>
+             
+             {errors.imageUrl && (
+               <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-2">
+                 <AlertCircle className="w-4 h-4" />
+                 <span>{errors.imageUrl}</span>
+               </p>
+             )}
+           </div>
 
-          {form.type === 'poll' && (
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Poll Options
-              </h2>
-              
-              <div className="space-y-3">
-                {(form.pollOptions || ['', '']).map((option, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => handlePollOptionChange(index, e.target.value)}
-                      className="flex-1 input-field"
-                      placeholder={`Option ${index + 1}`}
-                      maxLength={100}
-                    />
-                    {(form.pollOptions || []).length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => removePollOption(index)}
-                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                
-                {(form.pollOptions || []).length < 6 && (
-                  <button
-                    type="button"
-                    onClick={addPollOption}
-                    className="text-orange-500 hover:text-orange-600 text-sm font-medium"
-                  >
-                    + Add Option
-                  </button>
-                )}
-              </div>
-              
-              {errors.pollOptions && (
-                <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-2">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{errors.pollOptions}</span>
-                </p>
-              )}
-              
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Poll Duration (days)
-                </label>
-                <select
-                  value={form.pollDuration || 7}
-                  onChange={(e) => handleInputChange('pollDuration', parseInt(e.target.value))}
-                  className="input-field"
-                >
-                  <option value={1}>1 day</option>
-                  <option value={3}>3 days</option>
-                  <option value={7}>7 days</option>
-                  <option value={14}>14 days</option>
-                  <option value={30}>30 days</option>
-                </select>
-              </div>
-            </div>
-          )}
+           {/* Poll Options */}
+           <div className="card p-6">
+             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+               Add Poll (Optional)
+             </h2>
+             
+             <div className="space-y-3">
+               {(form.pollOptions || ['', '']).map((option, index) => (
+                 <div key={index} className="flex items-center space-x-2">
+                   <input
+                     type="text"
+                     value={option}
+                     onChange={(e) => handlePollOptionChange(index, e.target.value)}
+                     className="flex-1 input-field"
+                     placeholder={`Option ${index + 1}`}
+                     maxLength={100}
+                   />
+                   {(form.pollOptions || []).length > 2 && (
+                     <button
+                       type="button"
+                       onClick={() => removePollOption(index)}
+                       className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                     >
+                       <X className="w-4 h-4" />
+                     </button>
+                   )}
+                 </div>
+               ))}
+               
+               {(form.pollOptions || []).length < 6 && (
+                 <button
+                   type="button"
+                   onClick={addPollOption}
+                   className="text-orange-500 hover:text-orange-600 text-sm font-medium"
+                 >
+                   + Add Option
+                 </button>
+               )}
+             </div>
+             
+             {errors.pollOptions && (
+               <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-2">
+                 <AlertCircle className="w-4 h-4" />
+                 <span>{errors.pollOptions}</span>
+               </p>
+             )}
+             
+             <div className="mt-4">
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                 Poll Duration (days)
+               </label>
+               <select
+                 value={form.pollDuration || 7}
+                 onChange={(e) => handleInputChange('pollDuration', parseInt(e.target.value))}
+                 className="input-field"
+               >
+                 <option value={1}>1 day</option>
+                 <option value={3}>3 days</option>
+                 <option value={7}>7 days</option>
+                 <option value={14}>14 days</option>
+                 <option value={30}>30 days</option>
+               </select>
+             </div>
+           </div>
 
-          {/* Post Settings */}
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Post Settings
-            </h2>
-            
-            <div className="space-y-4">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.nsfw}
-                  onChange={(e) => handleInputChange('nsfw', e.target.checked)}
-                  className="rounded"
-                />
-                <div>
-                  <div className="font-medium text-gray-900 dark:text-white">NSFW (18+)</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    This post contains content that is not suitable for work
-                  </div>
-                </div>
-              </label>
-              
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.spoiler}
-                  onChange={(e) => handleInputChange('spoiler', e.target.checked)}
-                  className="rounded"
-                />
-                <div>
-                  <div className="font-medium text-gray-900 dark:text-white">Spoiler</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    This post contains spoilers
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
+          
 
           {/* Error Message */}
           {errors.general && (

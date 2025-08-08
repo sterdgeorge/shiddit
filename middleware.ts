@@ -17,7 +17,6 @@ export const config = {
   matcher: [
     '/create-post/:path*',
     '/create-community/:path*',
-    '/messages/:path*',
     '/settings/:path*',
     '/login',
     '/register',

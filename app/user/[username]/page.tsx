@@ -6,11 +6,25 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
 import { collection, query, where, orderBy, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { uploadProfilePicture } from '@/lib/profilePicture'
 import MainLayout from '@/components/layout/MainLayout'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import PostCard from '@/components/feed/PostCard'
 import Button from '@/components/ui/Button'
-import { Camera, Edit3, Twitter, Globe, Calendar, MessageSquare, Heart, Users, Settings } from 'lucide-react'
+import { Camera, Edit3, Globe, Calendar, Heart, Users, Settings, CheckCircle, Hash } from 'lucide-react'
+import DefaultProfilePicture from '@/components/ui/DefaultProfilePicture'
+import XIcon from '@/components/ui/XIcon'
+import { calculateUserStats } from '@/lib/userStats'
+
+// Helper function to ensure URLs have proper protocol
+const ensureUrlProtocol = (url: string): string => {
+  if (!url) return url
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  // Default to https:// for security
+  return `https://${url}`
+}
 
 interface UserProfile {
   id: string
@@ -25,6 +39,7 @@ interface UserProfile {
   commentKarma: number
   totalKarma: number
   isAdmin: boolean
+  isPremium?: boolean
 }
 
 interface UserPost {
@@ -39,8 +54,6 @@ interface UserPost {
   upvotes: string[]
   downvotes: string[]
   commentCount: number
-  type: 'text' | 'image' | 'video' | 'link' | 'poll'
-  url?: string
   imageUrl?: string
   videoUrl?: string
   isPinned?: boolean
@@ -71,6 +84,11 @@ export default function UserProfilePage() {
     websiteLink: ''
   })
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [userStats, setUserStats] = useState({
+    postCount: 0,
+    commentCount: 0,
+    totalUpvotesReceived: 0
+  })
 
   const username = params.username as string
 
@@ -97,6 +115,8 @@ export default function UserProfilePage() {
               profilePicture: data.profilePicture,
               twitterLink: data.twitterLink,
               websiteLink: data.websiteLink,
+              isPremium: data.isPremium,
+
               createdAt: data.createdAt?.toDate() || new Date(),
               postKarma: data.postKarma || 0,
               commentKarma: data.commentKarma || 0,
@@ -124,6 +144,16 @@ export default function UserProfilePage() {
   }, [username])
 
   useEffect(() => {
+    if (profile) {
+      const fetchUserStats = async () => {
+        const stats = await calculateUserStats(profile.id)
+        setUserStats(stats)
+      }
+      fetchUserStats()
+    }
+  }, [profile])
+
+  useEffect(() => {
     if (!profile) return
 
     // Fetch user's posts
@@ -149,8 +179,6 @@ export default function UserProfilePage() {
            upvotes: data.upvotes || [],
            downvotes: data.downvotes || [],
            commentCount: data.commentCount || 0,
-           type: data.type || 'text',
-           url: data.url,
            imageUrl: data.imageUrl,
            videoUrl: data.videoUrl,
            isPinned: data.isPinned || false,
@@ -201,25 +229,21 @@ export default function UserProfilePage() {
   }, [profile])
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || !event.target.files[0] || !profile) return
+    if (!event.target.files || !event.target.files[0] || !user) return
 
     const file = event.target.files[0]
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      alert('Image size must be less than 5MB')
-      return
-    }
-
     setUploadingImage(true)
+    
     try {
-      // For now, we'll use a placeholder URL
-      // In production, you'd upload to Firebase Storage
-      const imageUrl = URL.createObjectURL(file)
+      const result = await uploadProfilePicture(user.uid, file)
       
-      await updateDoc(doc(db, 'users', profile.id), {
-        profilePicture: imageUrl
-      })
-      
-      alert('Profile picture updated successfully!')
+      if (result.success) {
+        alert('Profile picture updated successfully!')
+        // Refresh the page to show the new profile picture
+        window.location.reload()
+      } else {
+        alert(result.error || 'Failed to upload image. Please try again.')
+      }
     } catch (error) {
       console.error('Error uploading image:', error)
       alert('Failed to upload image. Please try again.')
@@ -234,8 +258,8 @@ export default function UserProfilePage() {
     try {
       await updateDoc(doc(db, 'users', profile.id), {
         bio: editForm.bio.trim(),
-        twitterLink: editForm.twitterLink.trim(),
-        websiteLink: editForm.websiteLink.trim()
+        twitterLink: ensureUrlProtocol(editForm.twitterLink.trim()),
+        websiteLink: ensureUrlProtocol(editForm.websiteLink.trim())
       })
       
       setIsEditing(false)
@@ -278,30 +302,34 @@ export default function UserProfilePage() {
       <div className="max-w-4xl mx-auto">
         {/* Profile Header */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
-          {/* Cover Image Placeholder */}
-          <div className="h-32 bg-gradient-to-r from-orange-400 to-red-500 rounded-t-lg"></div>
-          
           {/* Profile Info */}
-          <div className="relative px-6 pb-6">
-            <div className="flex items-end space-x-4 -mt-16">
+          <div className="px-6 py-6">
+            <div className="flex items-start space-x-6">
               {/* Profile Picture */}
               <div className="relative">
-                <div className="w-32 h-32 bg-orange-500 rounded-full border-4 border-white dark:border-gray-800 flex items-center justify-center overflow-hidden">
+                <div className="w-32 h-32 border-4 border-white dark:border-gray-800 overflow-hidden rounded-full">
                   {profile.profilePicture ? (
                     <img 
                       src={profile.profilePicture} 
                       alt={profile.username} 
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // If image fails to load, show default
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        target.nextElementSibling?.classList.remove('hidden')
+                      }}
                     />
-                  ) : (
-                    <span className="text-white text-4xl font-bold">
-                      {profile.username.charAt(0).toUpperCase()}
-                    </span>
-                  )}
+                  ) : null}
+                  <DefaultProfilePicture 
+                    username={profile.username} 
+                    size="xl" 
+                    className={profile.profilePicture ? 'hidden' : ''}
+                  />
                 </div>
                 
                 {isOwnProfile && (
-                  <label className="absolute bottom-0 right-0 bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full cursor-pointer transition-colors">
+                  <label className="absolute -bottom-2 -right-2 bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-full cursor-pointer transition-colors shadow-lg border-2 border-white dark:border-gray-800">
                     <Camera className="w-4 h-4" />
                     <input
                       type="file"
@@ -325,6 +353,12 @@ export default function UserProfilePage() {
                       Admin
                     </span>
                   )}
+                  {profile.isPremium && (
+                    <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full flex items-center space-x-1">
+                      <CheckCircle className="w-3 h-3" />
+                      <span>Verified</span>
+                    </span>
+                  )}
                 </div>
                 
                 <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400 mb-3">
@@ -333,13 +367,13 @@ export default function UserProfilePage() {
                     <span>Joined {profile.createdAt.toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <MessageSquare className="w-4 h-4" />
-                    <span>{posts.length} posts</span>
+                    <Hash className="w-4 h-4" />
+                    <span>{userStats.postCount} posts</span>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <Heart className="w-4 h-4" />
-                    <span>{profile.totalKarma} karma</span>
-                  </div>
+                                     <div className="flex items-center space-x-1">
+                     <Heart className="w-4 h-4" />
+                     <span>{userStats.totalUpvotesReceived} upvotes received</span>
+                   </div>
                 </div>
                 
                 {/* Social Links */}
@@ -347,18 +381,18 @@ export default function UserProfilePage() {
                   <div className="flex items-center space-x-3">
                     {profile.twitterLink && (
                       <a
-                        href={profile.twitterLink}
+                        href={ensureUrlProtocol(profile.twitterLink)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center space-x-1 text-blue-500 hover:text-blue-600 transition-colors"
+                        className="flex items-center space-x-1 text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                       >
-                        <Twitter className="w-4 h-4" />
-                        <span className="text-sm">Twitter</span>
+                        <XIcon className="w-4 h-4" />
+                        <span className="text-sm">X</span>
                       </a>
                     )}
                     {profile.websiteLink && (
                       <a
-                        href={profile.websiteLink}
+                        href={ensureUrlProtocol(profile.websiteLink)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center space-x-1 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -371,45 +405,26 @@ export default function UserProfilePage() {
                 )}
               </div>
               
-              {/* Action Buttons */}
-              <div className="flex items-center space-x-2">
-                {isOwnProfile ? (
-                  <>
-                    <Button
-                      onClick={() => setIsEditing(!isEditing)}
-                      variant="secondary"
-                      size="sm"
-                    >
-                      <Edit3 className="w-4 h-4 mr-2" />
-                      Edit Profile
-                    </Button>
-                    <Button
-                      onClick={() => window.location.href = '/settings'}
-                      variant="secondary"
-                      size="sm"
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Settings
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      onClick={() => {
-                        if (!user) {
-                          showLoginPopup()
-                        } else {
-                          // Start conversation logic
-                          window.location.href = `/messages`
-                        }
-                      }}
-                      size="sm"
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Message
-                    </Button>
-                  </>
-                )}
+                             {/* Action Buttons */}
+               <div className="flex flex-col space-y-3">
+                 {isOwnProfile ? (
+                   <>
+                     <button
+                       onClick={() => setIsEditing(!isEditing)}
+                       className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+                     >
+                       <Edit3 className="w-4 h-4 mr-2" />
+                       Edit Profile
+                     </button>
+                     <button
+                       onClick={() => window.location.href = '/settings'}
+                       className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+                     >
+                       <Settings className="w-4 h-4 mr-2" />
+                       Settings
+                     </button>
+                   </>
+                 ) : null}
               </div>
             </div>
             
@@ -452,7 +467,7 @@ export default function UserProfilePage() {
               
               <div>
                 <label htmlFor="twitter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Twitter Link
+                  X Link
                 </label>
                 <input
                   id="twitter"
@@ -460,7 +475,7 @@ export default function UserProfilePage() {
                   value={editForm.twitterLink}
                   onChange={(e) => setEditForm({ ...editForm, twitterLink: e.target.value })}
                   className="input-field"
-                  placeholder="https://twitter.com/username"
+                  placeholder="https://x.com/username"
                 />
               </div>
               
@@ -523,16 +538,16 @@ export default function UserProfilePage() {
           <div className="p-6">
             {activeTab === 'posts' ? (
               <div className="space-y-4">
-                {posts.length === 0 ? (
-                  <div className="text-center py-8">
-                    <MessageSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      No posts yet
-                    </h3>
-                    <p className="text-gray-500 dark:text-gray-400">
-                      {isOwnProfile ? 'Start sharing your thoughts with the community!' : 'This user hasn\'t posted anything yet.'}
-                    </p>
-                  </div>
+                                 {posts.length === 0 ? (
+                   <div className="text-center py-8">
+                     <Hash className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                     <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                       No posts yet
+                     </h3>
+                     <p className="text-gray-500 dark:text-gray-400">
+                       {isOwnProfile ? 'Start sharing your thoughts with the community!' : 'This user hasn\'t posted anything yet.'}
+                     </p>
+                   </div>
                 ) : (
                   posts.map((post) => (
                     <PostCard key={post.id} post={post} />

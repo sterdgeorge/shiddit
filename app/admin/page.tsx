@@ -3,253 +3,272 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
-import MainLayout from '@/components/layout/MainLayout'
-import { 
-  Shield, 
-  Users, 
-  Ban, 
-  Trash2, 
-  Eye, 
-  Search, 
-  Filter, 
-  AlertTriangle,
-  CheckCircle,
-  X,
-  MessageSquare,
-  FileText,
-  UserCheck,
-  UserX
-} from 'lucide-react'
-import { 
-  getAllUsers, 
-  getBannedUsers, 
-  banUser, 
-  unbanUser, 
-  deletePost, 
-  deleteComment,
-  getUserDetails,
-  isAdmin,
-  AdminUser,
-  BanData
-} from '@/lib/admin'
+import { doc, updateDoc, deleteDoc, collection, query, getDocs, where, orderBy, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { collection, query, orderBy, limit, getDocs, doc, getDoc } from 'firebase/firestore'
+import MainLayout from '@/components/layout/MainLayout'
+import { Shield, Crown, CheckCircle, AlertCircle, User, Settings, Trash2, Ban, Users, MessageSquare, Eye, Search, Filter, RefreshCw } from 'lucide-react'
 
 interface Post {
   id: string
   title: string
   authorUsername: string
-  authorId: string
+  communityName: string
+  score: number
   createdAt: any
-  likes: number
-  comments: number
+  content: string
 }
 
-interface Comment {
+interface Community {
   id: string
-  content: string
-  authorUsername: string
-  authorId: string
-  postId: string
+  name: string
+  description: string
+  memberCount: number
   createdAt: any
+  creatorUsername: string
+}
+
+interface UserProfile {
+  id: string
+  username: string
+  email: string
+  isAdmin: boolean
+  isPremium: boolean
+  isVerified: boolean
+  adminLevel?: string
+  createdAt: any
+  waitingForPayment: boolean
+  senderAddress?: string
 }
 
 export default function AdminPage() {
-  const { user } = useAuth()
+  const { user, userProfile } = useAuth()
   const { showLoginPopup } = useLogin()
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success')
   
-  const [isUserAdmin, setIsUserAdmin] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('users')
-  const [users, setUsers] = useState<AdminUser[]>([])
-  const [bannedUsers, setBannedUsers] = useState<AdminUser[]>([])
+  // Data states
   const [posts, setPosts] = useState<Post[]>([])
-  const [comments, setComments] = useState<Comment[]>([])
+  const [communities, setCommunities] = useState<Community[]>([])
+  const [users, setUsers] = useState<UserProfile[]>([])
+  const [pendingVerifications, setPendingVerifications] = useState<UserProfile[]>([])
+  
+  // UI states
+  const [activeTab, setActiveTab] = useState<'overview' | 'posts' | 'communities' | 'users' | 'verifications'>('overview')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
-  const [banReason, setBanReason] = useState('')
-  const [showBanModal, setShowBanModal] = useState(false)
-  const [showUserModal, setShowUserModal] = useState(false)
-  const [actionLoading, setActionLoading] = useState(false)
+  const [filterType, setFilterType] = useState<'all' | 'admin' | 'premium' | 'verified'>('all')
 
-  useEffect(() => {
-    checkAdminStatus()
-  }, [user])
+  // Check if user is super admin
+  const isSuperAdmin = userProfile?.isAdmin
 
-  const checkAdminStatus = async () => {
-    if (!user) {
-      setLoading(false)
-      return
-    }
-
-    try {
-      const adminStatus = await isAdmin(user.uid)
-      setIsUserAdmin(adminStatus)
-      
-      if (adminStatus) {
-        loadData()
-      }
-    } catch (error) {
-      console.error('Error checking admin status:', error)
-    } finally {
-      setLoading(false)
-    }
+  const showMessage = (msg: string, type: 'success' | 'error') => {
+    setMessage(msg)
+    setMessageType(type)
+    setTimeout(() => setMessage(''), 5000)
   }
 
-  const loadData = async () => {
+  const fetchData = async () => {
+    if (!isSuperAdmin) return
+    
+    setLoading(true)
     try {
-      const [usersData, bannedData, postsData, commentsData] = await Promise.all([
-        getAllUsers(),
-        getBannedUsers(),
-        getPosts(),
-        getComments()
-      ])
-      
-      setUsers(usersData)
-      setBannedUsers(bannedData)
-      setPosts(postsData)
-      setComments(commentsData)
-    } catch (error) {
-      console.error('Error loading admin data:', error)
-    }
-  }
-
-  const getPosts = async (): Promise<Post[]> => {
-    try {
+      // Fetch posts
       const postsQuery = query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(50))
-      const snapshot = await getDocs(postsQuery)
-      return snapshot.docs.map(doc => ({
+      const postsSnapshot = await getDocs(postsQuery)
+      const postsData = postsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Post[]
-    } catch (error) {
-      console.error('Error getting posts:', error)
-      return []
-    }
-  }
+      setPosts(postsData)
 
-  const getComments = async (): Promise<Comment[]> => {
-    try {
-      const commentsQuery = query(collection(db, 'comments'), orderBy('createdAt', 'desc'), limit(50))
-      const snapshot = await getDocs(commentsQuery)
-      return snapshot.docs.map(doc => ({
+      // Fetch communities
+      const communitiesQuery = query(collection(db, 'communities'), orderBy('createdAt', 'desc'), limit(50))
+      const communitiesSnapshot = await getDocs(communitiesQuery)
+      const communitiesData = communitiesSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as Comment[]
+      })) as Community[]
+      setCommunities(communitiesData)
+
+      // Fetch users
+      const usersQuery = query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(100))
+      const usersSnapshot = await getDocs(usersQuery)
+      const usersData = usersSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as UserProfile[]
+      setUsers(usersData)
+
+      // Fetch pending verifications
+      const pendingQuery = query(collection(db, 'users'), where('waitingForPayment', '==', true))
+      const pendingSnapshot = await getDocs(pendingQuery)
+      const pendingData = pendingSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as UserProfile[]
+      setPendingVerifications(pendingData)
+
     } catch (error) {
-      console.error('Error getting comments:', error)
-      return []
-    }
-  }
-
-  const handleBanUser = async () => {
-    if (!selectedUser || !banReason.trim()) return
-
-    setActionLoading(true)
-    try {
-      const banData: BanData = {
-        reason: banReason,
-        bannedBy: user!.uid,
-        bannedAt: new Date()
-      }
-
-      const success = await banUser(selectedUser.id, banData)
-      if (success) {
-        setShowBanModal(false)
-        setBanReason('')
-        setSelectedUser(null)
-        loadData() // Refresh data
-        alert('User banned successfully')
-      } else {
-        alert('Failed to ban user')
-      }
-    } catch (error) {
-      console.error('Error banning user:', error)
-      alert('Error banning user')
+      console.error('Error fetching data:', error)
+      showMessage('Failed to fetch data', 'error')
     } finally {
-      setActionLoading(false)
+      setLoading(false)
     }
   }
 
-  const handleUnbanUser = async (userId: string) => {
-    setActionLoading(true)
-    try {
-      const success = await unbanUser(userId, user!.uid)
-      if (success) {
-        loadData() // Refresh data
-        alert('User unbanned successfully')
-      } else {
-        alert('Failed to unban user')
-      }
-    } catch (error) {
-      console.error('Error unbanning user:', error)
-      alert('Error unbanning user')
-    } finally {
-      setActionLoading(false)
+  useEffect(() => {
+    if (isSuperAdmin) {
+      fetchData()
     }
-  }
+  }, [isSuperAdmin])
 
-  const handleDeletePost = async (postId: string) => {
+  // Admin Actions
+  const deletePost = async (postId: string) => {
     if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) return
-
-    setActionLoading(true)
+    
     try {
-             const success = await deletePost(postId, user!.uid)
-      if (success) {
-        loadData() // Refresh data
-        alert('Post deleted successfully')
-      } else {
-        alert('Failed to delete post')
-      }
+      await deleteDoc(doc(db, 'posts', postId))
+      setPosts(prev => prev.filter(post => post.id !== postId))
+      showMessage('Post deleted successfully', 'success')
     } catch (error) {
       console.error('Error deleting post:', error)
-      alert('Error deleting post')
-    } finally {
-      setActionLoading(false)
+      showMessage('Failed to delete post', 'error')
     }
   }
 
-  const handleDeleteComment = async (commentId: string) => {
-    if (!confirm('Are you sure you want to delete this comment? This action cannot be undone.')) return
-
-    setActionLoading(true)
+  const deleteCommunity = async (communityId: string) => {
+    if (!confirm('Are you sure you want to delete this community? This will also delete all posts in the community.')) return
+    
     try {
-             const success = await deleteComment(commentId, user!.uid)
-      if (success) {
-        loadData() // Refresh data
-        alert('Comment deleted successfully')
-      } else {
-        alert('Failed to delete comment')
-      }
+      await deleteDoc(doc(db, 'communities', communityId))
+      setCommunities(prev => prev.filter(community => community.id !== communityId))
+      showMessage('Community deleted successfully', 'success')
     } catch (error) {
-      console.error('Error deleting comment:', error)
-      alert('Error deleting comment')
-    } finally {
-      setActionLoading(false)
+      console.error('Error deleting community:', error)
+      showMessage('Failed to delete community', 'error')
     }
   }
 
-  const filteredUsers = users.filter(user => 
-    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const banUser = async (userId: string, username: string) => {
+    if (!confirm(`Are you sure you want to ban user "${username}"? This will delete their account and all their posts.`)) return
+    
+    try {
+      // Delete user's posts
+      const userPostsQuery = query(collection(db, 'posts'), where('authorId', '==', userId))
+      const userPostsSnapshot = await getDocs(userPostsQuery)
+      const deletePromises = userPostsSnapshot.docs.map(doc => deleteDoc(doc.ref))
+      await Promise.all(deletePromises)
 
-  const filteredPosts = posts.filter(post =>
+      // Delete user document
+      await deleteDoc(doc(db, 'users', userId))
+      
+      setUsers(prev => prev.filter(user => user.id !== userId))
+      showMessage(`User "${username}" has been banned`, 'success')
+    } catch (error) {
+      console.error('Error banning user:', error)
+      showMessage('Failed to ban user', 'error')
+    }
+  }
+
+  const verifyUser = async (userId: string, username: string) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        isPremium: true,
+        isVerified: true,
+        premiumSince: new Date(),
+        waitingForPayment: false,
+        paymentConfirmedAt: new Date(),
+        verificationStep: 'confirmation',
+        verificationStatus: 'verified'
+      })
+      
+      setPendingVerifications(prev => prev.filter(user => user.id !== userId))
+      setUsers(prev => prev.map(user => 
+        user.id === userId 
+          ? { ...user, isPremium: true, isVerified: true, waitingForPayment: false }
+          : user
+      ))
+      showMessage(`User "${username}" has been verified`, 'success')
+    } catch (error) {
+      console.error('Error verifying user:', error)
+      showMessage('Failed to verify user', 'error')
+    }
+  }
+
+  const setupGodUser = async () => {
+    if (!user) return
+    
+    setLoading(true)
+    setMessage('')
+    
+    try {
+      // Find the user with username "god"
+      const usersRef = collection(db, 'users')
+      const q = query(usersRef, where('username', '==', 'god'))
+      const querySnapshot = await getDocs(q)
+
+      if (querySnapshot.empty) {
+        showMessage('User "god" not found. Please create the user first.', 'error')
+        return
+      }
+
+      const godUser = querySnapshot.docs[0]
+      const userId = godUser.id
+
+      // Update the user to have admin powers and verification
+      await updateDoc(doc(db, 'users', userId), {
+        isAdmin: true,
+        isPremium: true,
+        isVerified: true,
+        adminLevel: 'super',
+        canDeletePosts: true,
+        canBanUsers: true,
+        canManageCommunities: true,
+        adminGrantedAt: new Date(),
+        adminGrantedBy: user.uid,
+        premiumSince: new Date(),
+        verificationStatus: 'verified'
+      })
+
+      showMessage('✅ User "god" has been granted admin powers and verification!', 'success')
+    } catch (error) {
+      console.error('Error setting up god admin:', error)
+      showMessage('Failed to set up god admin. Please check console for details.', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Filter functions
+  const filteredPosts = posts.filter(post => 
     post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    post.authorUsername.toLowerCase().includes(searchTerm.toLowerCase())
+    post.authorUsername.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    post.communityName.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const filteredComments = comments.filter(comment =>
-    comment.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    comment.authorUsername.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCommunities = communities.filter(community => 
+    community.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    community.description.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    if (filterType === 'all') return matchesSearch
+    if (filterType === 'admin') return matchesSearch && user.isAdmin
+    if (filterType === 'premium') return matchesSearch && user.isPremium
+    if (filterType === 'verified') return matchesSearch && user.isVerified
+    
+    return matchesSearch
+  })
 
   if (!user) {
     return (
       <MainLayout>
         <div className="text-center py-8">
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Please log in to access the admin panel
+            Please log in to access admin features
           </p>
           <button
             onClick={showLoginPopup}
@@ -262,27 +281,16 @@ export default function AdminPage() {
     )
   }
 
-  if (loading) {
+  if (!isSuperAdmin) {
     return (
       <MainLayout>
         <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading admin panel...</p>
-        </div>
-      </MainLayout>
-    )
-  }
-
-  if (!isUserAdmin) {
-    return (
-      <MainLayout>
-        <div className="text-center py-8">
-          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
             Access Denied
-          </h1>
+          </h2>
           <p className="text-gray-600 dark:text-gray-400">
-            You don't have permission to access the admin panel
+            You need super admin privileges to access this page.
           </p>
         </div>
       </MainLayout>
@@ -294,250 +302,210 @@ export default function AdminPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-2">
-            <Shield className="w-6 h-6 text-orange-500" />
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Admin Panel
-            </h1>
-          </div>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage users, content, and site moderation
-          </p>
-        </div>
-
-        {/* Search Bar */}
-        <div className="card p-4 mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search users, posts, or comments..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center space-x-3 mb-2">
+                <Crown className="w-8 h-8 text-orange-500" />
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  Super Admin Panel
+                </h1>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400">
+                God-like control over the entire platform
+              </p>
             </div>
-            <Filter className="w-5 h-5 text-gray-400" />
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={fetchData}
+                disabled={loading}
+                className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           {[
-            { id: 'users', label: 'Users', icon: Users, count: users.length },
-            { id: 'banned', label: 'Banned', icon: Ban, count: bannedUsers.length },
-            { id: 'posts', label: 'Posts', icon: FileText, count: posts.length },
-            { id: 'comments', label: 'Comments', icon: MessageSquare, count: comments.length }
+            { id: 'overview', label: 'Overview', icon: Eye },
+            { id: 'posts', label: 'Posts', icon: MessageSquare },
+            { id: 'communities', label: 'Communities', icon: Users },
+            { id: 'users', label: 'Users', icon: User },
+            { id: 'verifications', label: 'Verifications', icon: CheckCircle }
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-white dark:bg-gray-700 text-orange-500 shadow-sm'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               <tab.icon className="w-4 h-4" />
               <span>{tab.label}</span>
-              <span className="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs">
-                {tab.count}
-              </span>
             </button>
           ))}
         </div>
 
-        {/* Content */}
-        <div className="card p-6">
+        {/* Search and Filter */}
+        <div className="flex items-center space-x-4 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
           {activeTab === 'users' && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                All Users ({filteredUsers.length})
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="text-left py-2">User</th>
-                      <th className="text-left py-2">Email</th>
-                      <th className="text-left py-2">Karma</th>
-                      <th className="text-left py-2">Status</th>
-                      <th className="text-left py-2">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                                         {filteredUsers.map((user) => (
-                       <tr key={user.id} className="border-b border-gray-100 dark:border-gray-800">
-                        <td className="py-3">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center">
-                              <span className="text-orange-600 dark:text-orange-400 font-medium text-sm">
-                                {user.username.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">
-                                {user.username}
-                              </p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                                 ID: {user.id.slice(0, 8)}...
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 text-gray-600 dark:text-gray-400">
-                          {user.email}
-                        </td>
-                        <td className="py-3">
-                          <div className="text-sm">
-                            <p className="text-gray-900 dark:text-white">{user.totalKarma}</p>
-                            <p className="text-gray-500 dark:text-gray-400">
-                              {user.postKarma} post • {user.commentKarma} comment
-                            </p>
-                          </div>
-                        </td>
-                        <td className="py-3">
-                          <div className="flex items-center space-x-2">
-                            {user.isAdmin && (
-                              <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs rounded-full">
-                                Admin
-                              </span>
-                            )}
-                            {user.isBanned ? (
-                              <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 text-xs rounded-full">
-                                Banned
-                              </span>
-                            ) : (
-                              <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs rounded-full">
-                                Active
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => {
-                                setSelectedUser(user)
-                                setShowUserModal(true)
-                              }}
-                              className="p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            {!user.isBanned && !user.isAdmin && (
-                              <button
-                                onClick={() => {
-                                  setSelectedUser(user)
-                                  setShowBanModal(true)
-                                }}
-                                className="p-1 text-red-500 hover:text-red-700 transition-colors"
-                                title="Ban User"
-                              >
-                                <Ban className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as any)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="all">All Users</option>
+              <option value="admin">Admins</option>
+              <option value="premium">Premium</option>
+              <option value="verified">Verified</option>
+            </select>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="space-y-6">
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="card p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Posts</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{posts.length}</p>
+                  </div>
+                  <MessageSquare className="w-8 h-8 text-blue-500" />
+                </div>
+              </div>
+              
+              <div className="card p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Communities</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{communities.length}</p>
+                  </div>
+                  <Users className="w-8 h-8 text-green-500" />
+                </div>
+              </div>
+              
+              <div className="card p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Users</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{users.length}</p>
+                  </div>
+                  <User className="w-8 h-8 text-purple-500" />
+                </div>
+              </div>
+              
+              <div className="card p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Pending Verifications</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{pendingVerifications.length}</p>
+                  </div>
+                  <CheckCircle className="w-8 h-8 text-orange-500" />
+                </div>
               </div>
             </div>
           )}
 
-          {activeTab === 'banned' && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Banned Users ({bannedUsers.length})
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="text-left py-2">User</th>
-                      <th className="text-left py-2">Ban Reason</th>
-                      <th className="text-left py-2">Banned By</th>
-                      <th className="text-left py-2">Banned At</th>
-                      <th className="text-left py-2">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                                         {bannedUsers.map((user) => (
-                       <tr key={user.id} className="border-b border-gray-100 dark:border-gray-800">
-                        <td className="py-3">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
-                              <span className="text-red-600 dark:text-red-400 font-medium text-sm">
-                                {user.username.charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">
-                                {user.username}
-                              </p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
-                                {user.email}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 text-gray-600 dark:text-gray-400">
-                          {user.banReason || 'No reason provided'}
-                        </td>
-                        <td className="py-3 text-gray-600 dark:text-gray-400">
-                          {user.bannedBy || 'Unknown'}
-                        </td>
-                        <td className="py-3 text-gray-600 dark:text-gray-400">
-                          {user.bannedAt ? new Date(user.bannedAt).toLocaleDateString() : 'Unknown'}
-                        </td>
-                        <td className="py-3">
-                          <button
-                                                         onClick={() => handleUnbanUser(user.id)}
-                            disabled={actionLoading}
-                            className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition-colors disabled:opacity-50"
-                          >
-                            Unban
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
+          {/* Posts Tab */}
           {activeTab === 'posts' && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Recent Posts ({filteredPosts.length})
-              </h2>
-              <div className="space-y-4">
+            <div className="card">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Manage Posts</h3>
+              </div>
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredPosts.map((post) => (
-                  <div key={post.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900 dark:text-white mb-1">
-                          {post.title}
-                        </h3>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                          <span>by {post.authorUsername}</span>
-                          <span>{post.likes} likes</span>
-                          <span>{post.comments} comments</span>
-                          <span>{post.createdAt ? new Date(post.createdAt.toDate()).toLocaleDateString() : 'Unknown'}</span>
-                        </div>
+                  <div key={post.id} className="p-4 flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white">{post.title}</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        by u/{post.authorUsername} in s/{post.communityName} • {post.score} points
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => deletePost(post.id)}
+                      className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Delete post"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Communities Tab */}
+          {activeTab === 'communities' && (
+            <div className="card">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Manage Communities</h3>
+              </div>
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredCommunities.map((community) => (
+                  <div key={community.id} className="p-4 flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white">s/{community.name}</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {community.memberCount} members • Created by u/{community.creatorUsername}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{community.description}</p>
+                    </div>
+                    <button
+                      onClick={() => deleteCommunity(community.id)}
+                      className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Delete community"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Users Tab */}
+          {activeTab === 'users' && (
+            <div className="card">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Manage Users</h3>
+              </div>
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredUsers.map((user) => (
+                  <div key={user.id} className="p-4 flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <h4 className="font-medium text-gray-900 dark:text-white">u/{user.username}</h4>
+                                                 {user.isAdmin && <Shield className="w-4 h-4 text-red-500" />}
+                         {user.isVerified && <CheckCircle className="w-4 h-4 text-blue-500" />}
+                         {user.isPremium && <Crown className="w-4 h-4 text-orange-500" />}
                       </div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => handleDeletePost(post.id)}
-                        disabled={actionLoading}
-                        className="p-2 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
-                        title="Delete Post"
+                        onClick={() => banUser(user.id, user.username)}
+                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Ban user"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Ban className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -546,146 +514,107 @@ export default function AdminPage() {
             </div>
           )}
 
-          {activeTab === 'comments' && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Recent Comments ({filteredComments.length})
-              </h2>
-              <div className="space-y-4">
-                {filteredComments.map((comment) => (
-                  <div key={comment.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="flex items-start justify-between">
+          {/* Verifications Tab */}
+          {activeTab === 'verifications' && (
+            <div className="card">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Pending Verifications</h3>
+              </div>
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {pendingVerifications.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                    No pending verifications
+                  </div>
+                ) : (
+                  pendingVerifications.map((user) => (
+                    <div key={user.id} className="p-4 flex items-center justify-between">
                       <div className="flex-1">
-                        <p className="text-gray-900 dark:text-white mb-2">
-                          {comment.content}
-                        </p>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                          <span>by {comment.authorUsername}</span>
-                          <span>Post ID: {comment.postId.slice(0, 8)}...</span>
-                          <span>{comment.createdAt ? new Date(comment.createdAt.toDate()).toLocaleDateString() : 'Unknown'}</span>
-                        </div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">u/{user.username}</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                        {user.senderAddress && (
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                            From: {user.senderAddress}
+                          </p>
+                        )}
                       </div>
                       <button
-                        onClick={() => handleDeleteComment(comment.id)}
-                        disabled={actionLoading}
-                        className="p-2 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
-                        title="Delete Comment"
+                        onClick={() => verifyUser(user.id, user.username)}
+                        className="ml-4 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        Verify User
                       </button>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Ban Modal */}
-        {showBanModal && selectedUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full mx-4">
-              <div className="p-6">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                  Ban User: {selectedUser.username}
-                </h3>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Ban Reason *
-                  </label>
-                  <textarea
-                    value={banReason}
-                    onChange={(e) => setBanReason(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Enter reason for banning this user..."
-                  />
-                </div>
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowBanModal(false)
-                      setBanReason('')
-                      setSelectedUser(null)
-                    }}
-                    className="px-4 py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleBanUser}
-                    disabled={!banReason.trim() || actionLoading}
-                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {actionLoading ? 'Banning...' : 'Ban User'}
-                  </button>
-                </div>
-              </div>
+        {/* Setup God User Section */}
+        <div className="mt-8 card p-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <Crown className="w-8 h-8 text-orange-500" />
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Setup God User
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Grant admin powers to the "god" user
+              </p>
             </div>
           </div>
-        )}
 
-        {/* User Details Modal */}
-        {showUserModal && selectedUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full mx-4">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    User Details: {selectedUser.username}
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setShowUserModal(false)
-                      setSelectedUser(null)
-                    }}
-                    className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Email:</span>
-                    <p className="text-gray-900 dark:text-white">{selectedUser.email}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">User ID:</span>
-                                         <p className="text-gray-900 dark:text-white font-mono text-sm">{selectedUser.id}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Karma:</span>
-                    <p className="text-gray-900 dark:text-white">
-                      {selectedUser.totalKarma} total ({selectedUser.postKarma} post, {selectedUser.commentKarma} comment)
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Status:</span>
-                    <div className="flex items-center space-x-2 mt-1">
-                      {selectedUser.isAdmin && (
-                        <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs rounded-full">
-                          Admin
-                        </span>
-                      )}
-                      {selectedUser.isBanned ? (
-                        <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 text-xs rounded-full">
-                          Banned
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs rounded-full">
-                          Active
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {selectedUser.isBanned && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Ban Reason:</span>
-                      <p className="text-gray-900 dark:text-white">{selectedUser.banReason || 'No reason provided'}</p>
-                    </div>
-                  )}
-                </div>
+          <div className="space-y-3">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="w-4 h-4 text-blue-500" />
+                <span className="text-sm text-blue-600 dark:text-blue-400">
+                  This will grant the "god" user super admin privileges
+                </span>
               </div>
+            </div>
+
+            <button
+              onClick={setupGodUser}
+              disabled={loading}
+              className="bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center space-x-2"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Setting up...</span>
+                </>
+              ) : (
+                <>
+                  <Crown className="w-4 h-4" />
+                  <span>Setup God User</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Message */}
+        {message && (
+          <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+            messageType === 'success' 
+              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
+              : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+          }`}>
+            <div className="flex items-center space-x-2">
+              {messageType === 'success' ? (
+                <CheckCircle className="w-5 h-5 text-green-500" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-red-500" />
+              )}
+              <span className={`text-sm font-medium ${
+                messageType === 'success' 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {message}
+              </span>
             </div>
           </div>
         )}

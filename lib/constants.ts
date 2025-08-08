@@ -4,7 +4,6 @@ export const APP_DESCRIPTION = 'A Shiddit-style platform for sharing and discuss
 export const NAVIGATION_ITEMS = [
   { name: 'Feed', href: '/', icon: 'Home' },
   { name: 'Leaderboard', href: '/leaderboard', icon: 'Trophy' },
-  { name: 'Messages', href: '/messages', icon: 'MessageSquare' },
   { name: 'Settings', href: '/settings', icon: 'Settings' },
 ]
 
@@ -17,8 +16,6 @@ export const FIREBASE_COLLECTIONS = {
   USERS: 'users',
   POSTS: 'posts',
   COMMUNITIES: 'communities',
-  MESSAGES: 'messages',
-  CONVERSATIONS: 'conversations',
   USERNAMES: 'usernames',
 } as const
 

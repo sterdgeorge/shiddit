@@ -72,12 +72,21 @@ export default function EmailVerificationBanner({ email, onClose }: EmailVerific
                 onClick={async () => {
                   try {
                     // Reload the user to check if email is verified
-                    await auth.currentUser?.reload()
-                    // Force a re-render by updating the auth state
-                    window.location.reload()
+                    if (auth.currentUser) {
+                      await auth.currentUser.reload()
+                      // Check if email is now verified
+                      if (auth.currentUser.emailVerified) {
+                        // Email is verified, no need to reload the page
+                        // The AuthProvider will automatically update the state
+                        console.log('Email verified successfully!')
+                      } else {
+                        // Email not verified yet, show message
+                        alert('Please check your email and click the verification link before clicking this button.')
+                      }
+                    }
                   } catch (error) {
                     console.error('Error reloading user:', error)
-                    window.location.reload()
+                    alert('There was an error checking your email verification status. Please try again.')
                   }
                 }}
                 className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-200"

@@ -38,43 +38,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isEmailVerified, setIsEmailVerified] = useState(false)
 
   useEffect(() => {
+    let unsubscribeProfile: (() => void) | undefined
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser)
       
       if (firebaseUser) {
+        // Update email verification status immediately
+        setIsEmailVerified(firebaseUser.emailVerified)
+        
         // Listen to user profile changes in real-time
-        const unsubscribeProfile = onSnapshot(
+        unsubscribeProfile = onSnapshot(
           doc(db, 'users', firebaseUser.uid),
           (doc) => {
             if (doc.exists()) {
               const profile = doc.data() as UserProfile
               setUserProfile(profile)
               setIsBanned(profile.isBanned || false)
+              // Update email verification status from Firebase user
               setIsEmailVerified(firebaseUser.emailVerified)
             } else {
               setUserProfile(null)
               setIsBanned(false)
-              setIsEmailVerified(false)
+              setIsEmailVerified(firebaseUser.emailVerified)
             }
+            setLoading(false)
           },
           (error) => {
             console.error('Error fetching user profile:', error)
             setUserProfile(null)
             setIsBanned(false)
+            setIsEmailVerified(firebaseUser.emailVerified)
+            setLoading(false)
           }
         )
-
-        return () => unsubscribeProfile()
       } else {
         setUserProfile(null)
         setIsBanned(false)
         setIsEmailVerified(false)
+        setLoading(false)
       }
-      
-      setLoading(false)
     })
 
-    return () => unsubscribe()
+    return () => {
+      unsubscribe()
+      if (unsubscribeProfile) {
+        unsubscribeProfile()
+      }
+    }
   }, [])
 
   return (

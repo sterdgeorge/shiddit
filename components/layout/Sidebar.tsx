@@ -4,14 +4,42 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
-import { Home, Trophy, MessageSquare, Settings, Plus, Shield, Users, Star, Heart, Zap, User, ArrowLeftRight, Rocket, Crown, Users as UsersIcon } from 'lucide-react'
+import { Home, Trophy, Settings, Plus, Shield, Users, Star, Heart, Zap, User, ArrowLeftRight, Rocket, Crown, Users as UsersIcon, Hash, Coins } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getSiteStats, SiteStats } from '@/lib/stats'
+import { useEffect, useState } from 'react'
 
 
 export default function Sidebar() {
   const pathname = usePathname()
   const { user, userProfile } = useAuth()
   const { showLoginPopup } = useLogin()
+  const [siteStats, setSiteStats] = useState<SiteStats>({
+    totalUsers: 0,
+    totalPosts: 0,
+    totalCommunities: 0,
+    totalComments: 0,
+    usersOnline: 1,
+    verifiedUsers: 0,
+    activeUsers: 0
+  })
+
+  // Fetch site stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const stats = await getSiteStats()
+        setSiteStats(stats)
+      } catch (error) {
+        console.error('Error fetching site stats:', error)
+      }
+    }
+
+    fetchStats()
+    // Refresh stats every 5 minutes
+    const interval = setInterval(fetchStats, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const navigationItems = [
     {
@@ -32,17 +60,12 @@ export default function Sidebar() {
       icon: Users,
       requiresAuth: false,
     },
+
     {
-      name: 'Messages',
-      href: '/messages',
-      icon: MessageSquare,
-      requiresAuth: true,
-    },
-    {
-      name: 'Favorites',
-      href: '/favorites',
-      icon: Heart,
-      requiresAuth: true,
+      name: 'Premium',
+      href: '/premium',
+      icon: Crown,
+      requiresAuth: false,
     },
     {
       name: 'Settings',
@@ -54,6 +77,12 @@ export default function Sidebar() {
       name: 'Profile',
       href: `/user/${userProfile?.username || 'profile'}`,
       icon: User,
+      requiresAuth: true,
+    },
+    {
+      name: 'Manage Communities',
+      href: '/community-management',
+      icon: Hash,
       requiresAuth: true,
     },
     // Add admin link if user is admin
@@ -94,9 +123,9 @@ export default function Sidebar() {
       requiresAuth: false,
     },
     {
-      name: 'Premium',
-      href: '/premium',
-      icon: Crown,
+      name: 'Shit Coins',
+      href: '/shit-coins',
+      icon: Coins,
       requiresAuth: false,
     },
   ]
@@ -231,14 +260,28 @@ export default function Sidebar() {
                 <UsersIcon className="w-4 h-4 mr-2 text-green-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Users Online</span>
               </div>
-              <span className="text-sm font-medium text-gray-900 dark:text-white">1,234</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.usersOnline.toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="flex items-center">
                 <Users className="w-4 h-4 mr-2 text-blue-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Registered Users</span>
               </div>
-              <span className="text-sm font-medium text-gray-900 dark:text-white">45,678</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.totalUsers.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center">
+                <Hash className="w-4 h-4 mr-2 text-orange-500" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Communities</span>
+              </div>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.totalCommunities.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center">
+                <Hash className="w-4 h-4 mr-2 text-purple-500" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Posts</span>
+              </div>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.totalPosts.toLocaleString()}</span>
             </div>
           </div>
         </div>

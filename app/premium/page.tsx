@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 import MainLayout from '@/components/layout/MainLayout'
 import { Crown, CheckCircle, Copy, X, ExternalLink, AlertCircle } from 'lucide-react'
 
@@ -15,7 +17,13 @@ interface VerificationModalProps {
 }
 
 function VerificationModal({ isOpen, onClose }: VerificationModalProps) {
+  const { user } = useAuth()
   const [copied, setCopied] = useState(false)
+  const [senderAddress, setSenderAddress] = useState('')
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [waitingForPayment, setWaitingForPayment] = useState(false)
+  const [verificationStep, setVerificationStep] = useState<'initial' | 'payment' | 'confirmation'>('initial')
 
   const copyAddress = async () => {
     try {
@@ -29,6 +37,65 @@ function VerificationModal({ isOpen, onClose }: VerificationModalProps) {
 
   const openJupiter = () => {
     window.open(`https://jup.ag/swap/SOL-ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS`, '_blank', 'noopener,noreferrer')
+  }
+
+  const handlePaymentConfirmation = async () => {
+    if (!user || !senderAddress) return
+    
+    setUpdating(true)
+    try {
+      // Update user profile to indicate waiting for payment
+      await updateDoc(doc(db, 'users', user.uid), {
+        waitingForPayment: true,
+        senderAddress: senderAddress,
+        paymentRequestedAt: new Date(),
+        verificationStep: 'payment'
+      })
+      
+      setWaitingForPayment(true)
+      setVerificationStep('payment')
+      // Close modal after 3 seconds
+      setTimeout(() => {
+        onClose()
+        window.location.reload()
+      }, 3000)
+    } catch (error) {
+      console.error('Error updating payment status:', error)
+      alert('Failed to update payment status. Please try again.')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const handleManualPaymentConfirmation = async () => {
+    if (!user) return
+    
+    setUpdating(true)
+    try {
+      // Update user profile with premium status (manual confirmation)
+      await updateDoc(doc(db, 'users', user.uid), {
+        isPremium: true,
+        isVerified: true,
+        premiumSince: new Date(),
+        waitingForPayment: false,
+        paymentConfirmedAt: new Date(),
+        verificationStep: 'confirmation',
+        verificationStatus: 'verified'
+      })
+      
+      setPaymentConfirmed(true)
+      setVerificationStep('confirmation')
+      // Close modal after 3 seconds
+      setTimeout(() => {
+        onClose()
+        window.location.reload()
+      }, 3000)
+    } catch (error) {
+      console.error('Error updating premium status:', error)
+      alert('Failed to update premium status. Please try again.')
+    } finally {
+      setUpdating(false)
+    }
   }
 
   if (!isOpen) return null
@@ -78,10 +145,24 @@ function VerificationModal({ isOpen, onClose }: VerificationModalProps) {
             </p>
           </div>
 
+          {/* Sender Address */}
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">
+              Your wallet address (where you're sending from):
+            </label>
+            <input
+              type="text"
+              value={senderAddress}
+              onChange={(e) => setSenderAddress(e.target.value)}
+              placeholder="Enter your wallet address"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+
           {/* Payment Address */}
           <div className="mb-6">
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">
-              Payment to:
+              Send payment to:
             </label>
             <div className="relative">
               <input
@@ -104,29 +185,90 @@ function VerificationModal({ isOpen, onClose }: VerificationModalProps) {
             </div>
           </div>
 
+          {/* Verification Steps */}
+          <div className="mb-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                verificationStep === 'initial' ? 'bg-orange-500 text-white' : 'bg-green-500 text-white'
+              }`}>
+                1
+              </div>
+              <span className={`text-sm ${verificationStep === 'initial' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                Enter wallet address
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 mb-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                verificationStep === 'payment' ? 'bg-orange-500 text-white' : verificationStep === 'confirmation' ? 'bg-green-500 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-500'
+              }`}>
+                2
+              </div>
+              <span className={`text-sm ${verificationStep === 'payment' ? 'text-gray-900 dark:text-white' : verificationStep === 'confirmation' ? 'text-gray-500 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                Send payment
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                verificationStep === 'confirmation' ? 'bg-green-500 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-500'
+              }`}>
+                3
+              </div>
+              <span className={`text-sm ${verificationStep === 'confirmation' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                Get verified
+              </span>
+            </div>
+          </div>
+
           {/* Action Buttons */}
           <div className="space-y-3">
-            <div className="flex space-x-2">
-              <button
-                onClick={openJupiter}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors"
-              >
-                Auto Payment
-              </button>
-              <button
-                onClick={copyAddress}
-                className="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-lg text-sm font-medium transition-colors"
-              >
-                Manual Payment
-              </button>
-            </div>
-
             <button
               onClick={openJupiter}
-              className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors"
             >
-              Pay {VERIFICATION_COST.toLocaleString()} $SHIT
+              Get $SHIT Tokens
             </button>
+
+            {senderAddress && !waitingForPayment && (
+              <button
+                onClick={handlePaymentConfirmation}
+                disabled={updating}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {updating ? 'Processing...' : 'Pay'}
+              </button>
+            )}
+
+            {waitingForPayment && (
+              <div className="space-y-3">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-500" />
+                    <span className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+                      Waiting for payment confirmation. Please send {VERIFICATION_COST.toLocaleString()} $SHIT tokens to the address above.
+                    </span>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={handleManualPaymentConfirmation}
+                  disabled={updating}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  {updating ? 'Confirming...' : 'Confirm Payment Received'}
+                </button>
+              </div>
+            )}
+
+            {paymentConfirmed && !waitingForPayment && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                    Payment confirmed! Your verification badge has been applied.
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -145,7 +287,7 @@ function VerificationModal({ isOpen, onClose }: VerificationModalProps) {
 }
 
 export default function PremiumPage() {
-  const { user } = useAuth()
+  const { user, userProfile } = useAuth()
   const { showLoginPopup } = useLogin()
   const [showVerificationModal, setShowVerificationModal] = useState(false)
 
@@ -202,10 +344,18 @@ export default function PremiumPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <CheckCircle className="w-5 h-5 text-blue-500" />
-                <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                  Verified
-                </span>
+                {userProfile?.isPremium ? (
+                  <>
+                    <CheckCircle className="w-5 h-5 text-blue-500" />
+                    <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                      Verified
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    Not verified
+                  </span>
+                )}
               </div>
             </div>
             
@@ -229,12 +379,38 @@ export default function PremiumPage() {
               </li>
             </ul>
 
-            <button
-              onClick={() => setShowVerificationModal(true)}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-            >
-              Get Verified - {VERIFICATION_COST.toLocaleString()} $SHIT
-            </button>
+            {userProfile?.isPremium ? (
+              <div className="w-full bg-green-100 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                    You are verified! Premium features are active.
+                  </span>
+                </div>
+              </div>
+            ) : userProfile?.waitingForPayment ? (
+              <div className="w-full bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-500" />
+                  <span className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+                    Payment pending. Please complete your transaction.
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowVerificationModal(true)}
+                  className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                >
+                  Complete Payment
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowVerificationModal(true)}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+              >
+                Get Verified - {VERIFICATION_COST.toLocaleString()} $SHIT
+              </button>
+            )}
           </div>
 
           {/* Premium Membership */}

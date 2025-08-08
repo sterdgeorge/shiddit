@@ -18,6 +18,7 @@ export interface UserProfile {
   displayName?: string
   bio?: string
   avatar?: string
+  profilePicture?: string
   createdAt: any
   friends: string[]
   isAdmin?: boolean
@@ -26,6 +27,8 @@ export interface UserProfile {
   postKarma?: number
   commentKarma?: number
   totalKarma?: number
+
+  isPremium?: boolean
 }
 
 export const registerUser = async (

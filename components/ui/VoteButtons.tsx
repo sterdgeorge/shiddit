@@ -5,68 +5,37 @@ import { ChevronUp, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface VoteButtonsProps {
-  postId: string
-  initialScore: number
-  initialUpvotes: string[]
-  initialDownvotes: string[]
+  score: number
+  upvotes: string[]
+  downvotes: string[]
   userId?: string
-  onVote: (postId: string, voteType: 'upvote' | 'downvote' | 'remove') => Promise<void>
+  onVote: (voteType: 'upvote' | 'downvote') => void
   size?: 'sm' | 'md' | 'lg'
   orientation?: 'vertical' | 'horizontal'
+  isComment?: boolean
 }
 
 export default function VoteButtons({
-  postId,
-  initialScore,
-  initialUpvotes,
-  initialDownvotes,
+  score,
+  upvotes,
+  downvotes,
   userId,
   onVote,
   size = 'md',
-  orientation = 'vertical'
+  orientation = 'vertical',
+  isComment = false
 }: VoteButtonsProps) {
-  const [score, setScore] = useState(initialScore)
-  const [upvotes, setUpvotes] = useState(initialUpvotes)
-  const [downvotes, setDownvotes] = useState(initialDownvotes)
   const [isVoting, setIsVoting] = useState(false)
 
-  const hasUpvoted = userId ? upvotes.includes(userId) : false
-  const hasDownvoted = userId ? downvotes.includes(userId) : false
+  const hasUpvoted = userId && upvotes ? upvotes.includes(userId) : false
+  const hasDownvoted = userId && downvotes ? downvotes.includes(userId) : false
 
-  const handleVote = async (voteType: 'upvote' | 'downvote' | 'remove') => {
+  const handleVote = async (voteType: 'upvote' | 'downvote') => {
     if (!userId || isVoting) return
 
     setIsVoting(true)
     try {
-      await onVote(postId, voteType)
-      
-      // Update local state
-      let newScore = score
-      let newUpvotes = [...upvotes]
-      let newDownvotes = [...downvotes]
-
-      // Remove existing votes
-      if (hasUpvoted) {
-        newUpvotes = newUpvotes.filter(id => id !== userId)
-        newScore -= 1
-      }
-      if (hasDownvoted) {
-        newDownvotes = newDownvotes.filter(id => id !== userId)
-        newScore += 1
-      }
-
-      // Add new vote
-      if (voteType === 'upvote') {
-        newUpvotes.push(userId)
-        newScore += 1
-      } else if (voteType === 'downvote') {
-        newDownvotes.push(userId)
-        newScore -= 1
-      }
-
-      setScore(newScore)
-      setUpvotes(newUpvotes)
-      setDownvotes(newDownvotes)
+      await onVote(voteType)
     } catch (error) {
       console.error('Vote failed:', error)
     } finally {
@@ -104,7 +73,7 @@ export default function VoteButtons({
   return (
     <div className={containerClasses}>
       <button
-        onClick={() => handleVote(hasUpvoted ? 'remove' : 'upvote')}
+        onClick={() => handleVote('upvote')}
         disabled={isVoting}
         className={cn(
           'p-1 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700',
@@ -128,7 +97,7 @@ export default function VoteButtons({
       </span>
 
       <button
-        onClick={() => handleVote(hasDownvoted ? 'remove' : 'downvote')}
+        onClick={() => handleVote('downvote')}
         disabled={isVoting}
         className={cn(
           'p-1 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700',

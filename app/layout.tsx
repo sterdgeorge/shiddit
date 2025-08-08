@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import { LoginProvider } from '@/components/providers/LoginProvider'
 
 export const metadata: Metadata = {
-  title: 'Shiddit - Share Your Thoughts',
+  title: 'Shiddit - Where brain cells go to die.',
   description: 'A Shiddit-style platform for sharing and discussing content',
   icons: {
     icon: '/icon.jpg',

@@ -7,7 +7,8 @@ import MainLayout from '@/components/layout/MainLayout'
 import { ArrowLeftRight, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react'
 
 const TOKEN_CONTRACT_ADDRESS = 'ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS'
-const JUPITER_IFRAME_URL = 'https://jup.ag/swap/SOL-ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS'
+const JUPITER_IFRAME_URL = 'https://jup.ag/swap/SOL-ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS?inputMint=So11111111111111111111111111111111111111112&outputMint=ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS'
+const STORE_ADDRESS = 'ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS'
 
 export default function SwapPage() {
   const { user } = useAuth()

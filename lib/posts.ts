@@ -4,6 +4,7 @@ import {
   orderBy, 
   limit, 
   getDocs, 
+  getDoc,
   addDoc, 
   doc, 
   updateDoc, 
@@ -26,8 +27,6 @@ export interface Post {
   downvotes: string[]
   score: number
   commentCount: number
-  type: 'text' | 'image' | 'video' | 'link' | 'poll'
-  url?: string
   imageUrl?: string
   videoUrl?: string
   isPinned?: boolean
@@ -46,10 +45,10 @@ export const getSortedPosts = async (sortBy: 'hot' | 'new' | 'rising'): Promise<
         )
         break
       case 'rising':
-        // For rising, we'll sort by score first, then by recency
+        // For rising, we need to fetch all posts and calculate a rising score
+        // This is because Firestore doesn't support complex calculations in queries
         postsQuery = query(
           collection(db, 'posts'),
-          orderBy('score', 'desc'),
           orderBy('createdAt', 'desc')
         )
         break
@@ -79,13 +78,31 @@ export const getSortedPosts = async (sortBy: 'hot' | 'new' | 'rising'): Promise<
         downvotes: data.downvotes || [],
         score: data.score || 0,
         commentCount: data.commentCount || 0,
-        type: data.type || 'text',
-        url: data.url,
         imageUrl: data.imageUrl,
         videoUrl: data.videoUrl,
         isPinned: data.isPinned || false
       })
     })
+    
+    // Apply rising algorithm if needed
+    if (sortBy === 'rising') {
+      const now = new Date()
+      posts.sort((a, b) => {
+        const aTime = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt)
+        const bTime = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt)
+        
+        // Calculate time difference in hours
+        const aHoursAgo = (now.getTime() - aTime.getTime()) / (1000 * 60 * 60)
+        const bHoursAgo = (now.getTime() - bTime.getTime()) / (1000 * 60 * 60)
+        
+        // Rising algorithm: (score + 1) / (hours + 2)^1.5
+        // This gives more weight to recent posts with good scores
+        const aRisingScore = (a.score + 1) / Math.pow(aHoursAgo + 2, 1.5)
+        const bRisingScore = (b.score + 1) / Math.pow(bHoursAgo + 2, 1.5)
+        
+        return bRisingScore - aRisingScore
+      })
+    }
     
     return posts
   } catch (error) {
@@ -121,8 +138,6 @@ export const getTopPosts = async (limitCount: number = 10): Promise<Post[]> => {
         downvotes: data.downvotes || [],
         score: data.score || 0,
         commentCount: data.commentCount || 0,
-        type: data.type || 'text',
-        url: data.url,
         imageUrl: data.imageUrl,
         videoUrl: data.videoUrl,
         isPinned: data.isPinned || false
@@ -136,17 +151,52 @@ export const getTopPosts = async (limitCount: number = 10): Promise<Post[]> => {
   }
 }
 
+// Get top comments for leaderboard
+export const getTopComments = async (limitCount: number = 10) => {
+  try {
+    const commentsQuery = query(
+      collection(db, 'comments'),
+      orderBy('score', 'desc'),
+      limit(limitCount)
+    )
+    
+    const querySnapshot = await getDocs(commentsQuery)
+    const comments: any[] = []
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data()
+      comments.push({
+        id: doc.id,
+        content: data.content,
+        authorId: data.authorId,
+        authorUsername: data.authorUsername,
+        postId: data.postId,
+        replyTo: data.replyTo,
+        createdAt: data.createdAt,
+        upvotes: data.upvotes || [],
+        downvotes: data.downvotes || [],
+        score: data.score || 0
+      })
+    })
+    
+    return comments
+  } catch (error) {
+    console.error('Error fetching top comments:', error)
+    return []
+  }
+}
+
 // Vote on post
 export const votePost = async (postId: string, userId: string, voteType: 'upvote' | 'downvote' | 'remove') => {
   try {
     const postRef = doc(db, 'posts', postId)
-    const postDoc = await getDocs(query(collection(db, 'posts'), where('__name__', '==', postId)))
+    const postDoc = await getDoc(postRef)
     
-    if (postDoc.empty) {
+    if (!postDoc.exists()) {
       throw new Error('Post not found')
     }
     
-    const postData = postDoc.docs[0].data()
+    const postData = postDoc.data()
     const upvotes = postData.upvotes || []
     const downvotes = postData.downvotes || []
     

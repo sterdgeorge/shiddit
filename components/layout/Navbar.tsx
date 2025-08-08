@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useTheme } from '@/components/providers/ThemeProvider'
-import { Search, Sun, Moon, Copy, LogOut, Settings, User, Shield } from 'lucide-react'
+import { Search, Sun, Moon, Copy, LogOut, Settings, User, Shield, Crown } from 'lucide-react'
 import { logoutUser } from '@/lib/auth'
 import { copyToClipboard } from '@/lib/utils'
 import { useLogin } from '@/components/providers/LoginProvider'
@@ -84,12 +84,23 @@ export default function Navbar() {
                    onClick={() => setShowUserMenu(!showUserMenu)}
                    className="flex items-center space-x-2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                  >
-                   <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center relative">
-                     <span className="text-white text-xs font-medium">
-                       {userProfile?.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
-                     </span>
+                   <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center relative overflow-hidden">
+                     {userProfile?.profilePicture ? (
+                       <img 
+                         src={userProfile.profilePicture} 
+                         alt={userProfile.username} 
+                         className="w-full h-full object-cover"
+                       />
+                     ) : (
+                       <span className="text-white text-xs font-medium">
+                         {userProfile?.username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
+                       </span>
+                     )}
                      {isUserAdmin && (
                        <Shield className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-purple-500 bg-white rounded-full" />
+                     )}
+                     {userProfile?.isPremium && (
+                       <Crown className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 text-blue-500 bg-white rounded-full" />
                      )}
                    </div>
                  </button>

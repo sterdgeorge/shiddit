@@ -6,9 +6,12 @@ import { useLogin } from '@/components/providers/LoginProvider'
 import { useTheme } from '@/components/providers/ThemeProvider'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { uploadProfilePicture, deleteProfilePicture, getRemainingProfilePictureChanges } from '@/lib/profilePicture'
 import MainLayout from '@/components/layout/MainLayout'
 import Button from '@/components/ui/Button'
-import { Sun, Moon, User, Save } from 'lucide-react'
+import { Sun, Moon, User, Save, Camera, X } from 'lucide-react'
+import DefaultProfilePicture from '@/components/ui/DefaultProfilePicture'
+import { calculateUserStats } from '@/lib/userStats'
 
 export default function SettingsPage() {
   const { user, userProfile } = useAuth()
@@ -18,12 +21,80 @@ export default function SettingsPage() {
   const [bio, setBio] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [remainingChanges, setRemainingChanges] = useState(3)
+  const [userStats, setUserStats] = useState({
+    postCount: 0,
+    commentCount: 0,
+    totalUpvotesReceived: 0
+  })
+
 
   useEffect(() => {
     if (userProfile) {
       setBio(userProfile.bio || '')
     }
-  }, [userProfile])
+    if (user) {
+      setRemainingChanges(getRemainingProfilePictureChanges(user.uid))
+    }
+  }, [userProfile, user])
+
+  useEffect(() => {
+    if (user) {
+      const fetchUserStats = async () => {
+        const stats = await calculateUserStats(user.uid)
+        setUserStats(stats)
+      }
+      fetchUserStats()
+    }
+  }, [user])
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || !event.target.files[0] || !user) return
+
+    const file = event.target.files[0]
+    setUploadingImage(true)
+    setMessage('')
+    
+    try {
+      const result = await uploadProfilePicture(user.uid, file)
+      
+      if (result.success) {
+        setMessage('Profile picture updated successfully!')
+        setRemainingChanges(getRemainingProfilePictureChanges(user.uid))
+      } else {
+        setMessage(result.error || 'Failed to upload image. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      setMessage('Failed to upload image. Please try again.')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const handleDeleteImage = async () => {
+    if (!user || !userProfile?.profilePicture) return
+
+    setUploadingImage(true)
+    setMessage('')
+    
+    try {
+      const result = await deleteProfilePicture(user.uid, userProfile.profilePicture)
+      
+      if (result.success) {
+        setMessage('Profile picture removed successfully!')
+        setRemainingChanges(getRemainingProfilePictureChanges(user.uid))
+      } else {
+        setMessage(result.error || 'Failed to remove image. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error)
+      setMessage('Failed to remove image. Please try again.')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
 
   const handleSaveProfile = async () => {
     if (!user) return
@@ -43,6 +114,8 @@ export default function SettingsPage() {
       setLoading(false)
     }
   }
+
+
 
   if (!user) {
     return (
@@ -116,6 +189,81 @@ export default function SettingsPage() {
           </h2>
           
           <div className="space-y-4">
+            {/* Profile Picture */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Profile Picture
+              </label>
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <div className="w-20 h-20 border-4 border-white dark:border-gray-800 overflow-hidden rounded-full">
+                    {userProfile?.profilePicture ? (
+                      <img 
+                        src={userProfile.profilePicture} 
+                        alt={userProfile.username} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // If image fails to load, show default
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                          target.nextElementSibling?.classList.remove('hidden')
+                        }}
+                      />
+                    ) : null}
+                    <DefaultProfilePicture 
+                      username={userProfile?.username || 'User'} 
+                      size="lg" 
+                      className={userProfile?.profilePicture ? 'hidden' : ''}
+                    />
+                  </div>
+                  
+                  <label className="absolute -bottom-1 -right-1 bg-orange-500 hover:bg-orange-600 text-white p-1.5 rounded-full cursor-pointer transition-colors shadow-lg border-2 border-white dark:border-gray-800">
+                    <Camera className="w-3 h-3" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      disabled={uploadingImage}
+                    />
+                  </label>
+                </div>
+                
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <button
+                      onClick={() => document.getElementById('profile-picture-input')?.click()}
+                      disabled={uploadingImage}
+                      className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {uploadingImage ? 'Uploading...' : 'Upload Image'}
+                    </button>
+                    {userProfile?.profilePicture && (
+                      <button
+                        onClick={handleDeleteImage}
+                        disabled={uploadingImage}
+                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center space-x-1"
+                      >
+                        <X className="w-3 h-3" />
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {remainingChanges} changes remaining this hour • Max 5MB
+                  </p>
+                </div>
+              </div>
+              <input
+                id="profile-picture-input"
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                disabled={uploadingImage}
+              />
+            </div>
+            
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Username
@@ -202,64 +350,29 @@ export default function SettingsPage() {
             </div>
             
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Post Karma:</span>
+              <span className="text-gray-600 dark:text-gray-400">Shit posts:</span>
               <span className="text-gray-900 dark:text-white">
-                {userProfile?.postKarma || 0}
+                {userStats.postCount}
               </span>
             </div>
             
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Comment Karma:</span>
+              <span className="text-gray-600 dark:text-gray-400">Comment Shit:</span>
               <span className="text-gray-900 dark:text-white">
-                {userProfile?.commentKarma || 0}
+                {userStats.commentCount}
               </span>
             </div>
             
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Total Karma:</span>
-              <span className="text-gray-900 dark:text-white">
-                {userProfile?.totalKarma || 0}
-              </span>
-            </div>
+                             <div className="flex justify-between">
+                   <span className="text-gray-600 dark:text-gray-400">Upvotes received:</span>
+                   <span className="text-gray-900 dark:text-white">
+                     {userStats.totalUpvotesReceived}
+                   </span>
+                 </div>
           </div>
         </div>
 
-        {/* Privacy Settings */}
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Privacy & Security
-          </h2>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Show profile to other users
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Allow other users to view your profile
-                </p>
-              </div>
-              <button className="w-12 h-6 bg-gray-200 dark:bg-gray-700 rounded-full relative">
-                <div className="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform"></div>
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Allow direct messages
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Let other users send you messages
-                </p>
-              </div>
-              <button className="w-12 h-6 bg-orange-500 rounded-full relative">
-                <div className="w-4 h-4 bg-white rounded-full absolute top-1 right-1 transition-transform"></div>
-              </button>
-            </div>
-          </div>
-        </div>
+
       </div>
     </MainLayout>
   )

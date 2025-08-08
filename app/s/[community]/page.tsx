@@ -22,8 +22,6 @@ interface Post {
   upvotes: string[]
   downvotes: string[]
   commentCount: number
-  type: 'text' | 'image' | 'video' | 'link' | 'poll'
-  url?: string
   imageUrl?: string
   videoUrl?: string
   isPinned?: boolean
@@ -52,22 +50,30 @@ export default function CommunityPage() {
   useEffect(() => {
     const fetchCommunityAndPosts = async () => {
       try {
-        // Fetch community info
-        const communityQuery = query(
-          collection(db, 'communities'),
-          where('name', '==', communityName)
-        )
-        const communitySnapshot = await getDocs(communityQuery)
+        console.log('Looking for community:', communityName)
         
-        if (communitySnapshot.empty) {
+        // Fetch community info (case-insensitive)
+        const communitiesQuery = query(collection(db, 'communities'))
+        const communitiesSnapshot = await getDocs(communitiesQuery)
+        
+        console.log('Found communities:', communitiesSnapshot.docs.map(doc => doc.data().name))
+        
+        const communityDoc = communitiesSnapshot.docs.find(doc => 
+          doc.data().name.toLowerCase() === communityName.toLowerCase()
+        )
+        
+        if (!communityDoc) {
+          console.log('Community not found in database')
           setError('Community not found')
           setLoading(false)
           return
         }
+        
+        console.log('Found community:', communityDoc.data().name)
 
-        const communityData = communitySnapshot.docs[0].data()
+        const communityData = communityDoc.data()
         const communityInfo: Community = {
-          id: communitySnapshot.docs[0].id,
+          id: communityDoc.id,
           name: communityData.name,
           displayName: communityData.displayName,
           description: communityData.description,
@@ -78,10 +84,9 @@ export default function CommunityPage() {
         }
         setCommunity(communityInfo)
 
-        // Fetch posts from this community
+        // Fetch posts from this community (case-insensitive)
         const postsQuery = query(
           collection(db, 'posts'),
-          where('communityName', '==', communityName),
           orderBy('createdAt', 'desc'),
           limit(20)
         )
@@ -91,23 +96,24 @@ export default function CommunityPage() {
         
         postsSnapshot.forEach((doc) => {
           const data = doc.data()
-          postsData.push({
-            id: doc.id,
-            title: data.title,
-            content: data.content,
-            authorUsername: data.authorUsername,
-            communityName: data.communityName,
-            createdAt: data.createdAt,
-            score: data.score || 0,
-            upvotes: data.upvotes || [],
-            downvotes: data.downvotes || [],
-            commentCount: data.commentCount || 0,
-            type: data.type || 'text',
-            url: data.url,
-            imageUrl: data.imageUrl,
-            videoUrl: data.videoUrl,
-            isPinned: data.isPinned || false,
-          })
+          // Filter posts by community name (case-insensitive)
+          if (data.communityName && data.communityName.toLowerCase() === communityName.toLowerCase()) {
+            postsData.push({
+              id: doc.id,
+              title: data.title,
+              content: data.content,
+              authorUsername: data.authorUsername,
+              communityName: data.communityName,
+              createdAt: data.createdAt,
+              score: data.score || 0,
+              upvotes: data.upvotes || [],
+              downvotes: data.downvotes || [],
+              commentCount: data.commentCount || 0,
+              imageUrl: data.imageUrl,
+              videoUrl: data.videoUrl,
+              isPinned: data.isPinned || false,
+            })
+          }
         })
         
         setPosts(postsData)

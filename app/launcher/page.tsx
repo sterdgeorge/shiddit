@@ -5,6 +5,7 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
 import MainLayout from '@/components/layout/MainLayout'
 import { Rocket, Upload, Copy, CheckCircle, X, ExternalLink, AlertCircle, Users, BarChart3, User } from 'lucide-react'
+import { createToken } from '@/lib/tokens'
 
 interface TokenForm {
   name: string
@@ -26,7 +27,7 @@ interface WalletInfo {
 }
 
 export default function LauncherPage() {
-  const { user } = useAuth()
+  const { user, userProfile } = useAuth()
   const { showLoginPopup } = useLogin()
   
   const [form, setForm] = useState<TokenForm>({
@@ -49,13 +50,65 @@ export default function LauncherPage() {
   })
   
   const [loading, setLoading] = useState(false)
+  const [walletConnecting, setWalletConnecting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [showPremiumModal, setShowPremiumModal] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Check if user has premium badge (placeholder for now)
-  const hasPremiumBadge = false
+  // Check if user has premium badge
+  const hasPremiumBadge = userProfile?.isPremium || false
+
+  // Check wallet connection on mount and listen for changes
+  useEffect(() => {
+    const checkWalletConnection = async () => {
+      if (typeof window !== 'undefined' && 'solana' in window) {
+        const provider = (window as any).solana
+        if (provider?.isPhantom && provider.isConnected) {
+          try {
+            const address = provider.publicKey.toString()
+            const balance = await provider.getBalance()
+            
+            setWalletInfo({
+              address: `${address.slice(0, 4)}...${address.slice(-4)}`,
+              connected: true,
+              balance: balance / 1e9
+            })
+          } catch (error) {
+            console.error('Error checking wallet connection:', error)
+          }
+        }
+      }
+    }
+
+    const handleAccountChange = () => {
+      checkWalletConnection()
+    }
+
+    const handleDisconnect = () => {
+      setWalletInfo({
+        address: '',
+        connected: false,
+        balance: 0
+      })
+    }
+
+    checkWalletConnection()
+
+    // Listen for wallet connection changes
+    if (typeof window !== 'undefined' && 'solana' in window) {
+      const provider = (window as any).solana
+      if (provider?.isPhantom) {
+        provider.on('accountChanged', handleAccountChange)
+        provider.on('disconnect', handleDisconnect)
+
+        return () => {
+          provider.removeListener('accountChanged', handleAccountChange)
+          provider.removeListener('disconnect', handleDisconnect)
+        }
+      }
+    }
+  }, [])
 
   const handleInputChange = (field: keyof TokenForm, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -129,15 +182,33 @@ export default function LauncherPage() {
 
   const connectWallet = async () => {
     try {
+      setWalletConnecting(true)
+      setErrors(prev => ({ ...prev, wallet: '' }))
+      
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') {
+        setErrors(prev => ({ ...prev, wallet: 'Wallet connection not available in this environment' }))
+        return
+      }
+
+      // Check if Solana object exists
+      if (!('solana' in window)) {
+        setErrors(prev => ({ ...prev, wallet: 'Please install Phantom wallet extension' }))
+        return
+      }
+
+      const provider = (window as any).solana
+
       // Check if Phantom wallet is available
-      if (typeof window !== 'undefined' && 'solana' in window) {
-        const provider = (window as any).solana
-        
-        if (provider.isPhantom) {
-          const response = await provider.connect()
-          const address = response.publicKey.toString()
-          
-          // Get balance
+      if (!provider || !provider.isPhantom) {
+        setErrors(prev => ({ ...prev, wallet: 'Please install Phantom wallet extension' }))
+        return
+      }
+
+      // Check if already connected
+      if (provider.isConnected) {
+        try {
+          const address = provider.publicKey.toString()
           const balance = await provider.getBalance()
           
           setWalletInfo({
@@ -147,15 +218,54 @@ export default function LauncherPage() {
           })
           
           setErrors(prev => ({ ...prev, wallet: '' }))
-        } else {
-          setErrors(prev => ({ ...prev, wallet: 'Please install Phantom wallet' }))
+          return
+        } catch (error) {
+          console.error('Error getting wallet info:', error)
+          // If there's an error getting info from connected wallet, try reconnecting
         }
-      } else {
-        setErrors(prev => ({ ...prev, wallet: 'Please install Phantom wallet' }))
       }
-    } catch (error) {
+      
+      // Connect to wallet
+      console.log('Attempting to connect to Phantom wallet...')
+      const response = await provider.connect()
+      
+      if (!response || !response.publicKey) {
+        setErrors(prev => ({ ...prev, wallet: 'Failed to get wallet address' }))
+        return
+      }
+
+      const address = response.publicKey.toString()
+      console.log('Connected to wallet:', address)
+      
+      // Get balance
+      const balance = await provider.getBalance()
+      
+      setWalletInfo({
+        address: `${address.slice(0, 4)}...${address.slice(-4)}`,
+        connected: true,
+        balance: balance / 1e9 // Convert lamports to SOL
+      })
+      
+      setErrors(prev => ({ ...prev, wallet: '' }))
+      console.log('Wallet connected successfully')
+      
+    } catch (error: any) {
       console.error('Error connecting wallet:', error)
-      setErrors(prev => ({ ...prev, wallet: 'Failed to connect wallet' }))
+      
+      // Handle specific error cases
+      if (error.code === 4001) {
+        setErrors(prev => ({ ...prev, wallet: 'Connection rejected by user' }))
+      } else if (error.message?.includes('User rejected')) {
+        setErrors(prev => ({ ...prev, wallet: 'Connection rejected by user' }))
+      } else if (error.message?.includes('Wallet not found')) {
+        setErrors(prev => ({ ...prev, wallet: 'Please install Phantom wallet extension' }))
+      } else if (error.message?.includes('User denied')) {
+        setErrors(prev => ({ ...prev, wallet: 'Connection denied by user' }))
+      } else {
+        setErrors(prev => ({ ...prev, wallet: 'Failed to connect wallet. Please try again.' }))
+      }
+    } finally {
+      setWalletConnecting(false)
     }
   }
 
@@ -171,6 +281,27 @@ export default function LauncherPage() {
       // Generate vanity contract address ending with the specified suffix
       const vanityAddress = await generateVanityAddress(form.contractSuffix)
       
+      // Save token data to database
+      const tokenData = {
+        name: form.name,
+        symbol: form.symbol,
+        description: form.description,
+        contractAddress: vanityAddress,
+        launchpad: form.launchpad,
+        marketCap: 0, // Will be updated when token is actually launched
+        price: 0,
+        volume24h: 0,
+        holders: 0,
+        creatorId: user.uid,
+        creatorUsername: user.username || user.displayName || 'Unknown',
+        imageUrl: imagePreview || undefined,
+        websiteUrl: form.websiteUrl || undefined,
+        communityId: form.createCommunity ? form.name.toLowerCase() : undefined,
+        communityName: form.createCommunity ? form.name.toLowerCase() : undefined
+      }
+      
+      await createToken(tokenData)
+      
       // Here you would integrate with the actual launchpad APIs
       const launchpadUrl = form.launchpad === 'pump.fun' 
         ? `https://pump.fun/create?vanity=${encodeURIComponent(vanityAddress)}` 
@@ -180,7 +311,7 @@ export default function LauncherPage() {
       window.open(launchpadUrl, '_blank', 'noopener,noreferrer')
       
       // Show success message with vanity address
-      alert(`Token launch initiated!\n\nVanity Contract Address: ${vanityAddress}\n\nCheck the launchpad for further steps.`)
+      alert(`Token launch initiated!\n\nVanity Contract Address: ${vanityAddress}\n\nToken has been saved to Shiddit database. Check the launchpad for further steps.`)
       
     } catch (error) {
       console.error('Error launching token:', error)
@@ -210,6 +341,27 @@ export default function LauncherPage() {
       // Show copied feedback
     } catch (error) {
       console.error('Failed to copy address:', error)
+    }
+  }
+
+  const disconnectWallet = async () => {
+    try {
+      if (typeof window !== 'undefined' && 'solana' in window) {
+        const provider = (window as any).solana
+        if (provider.isPhantom) {
+          await provider.disconnect()
+        }
+      }
+      
+      setWalletInfo({
+        address: '',
+        connected: false,
+        balance: 0
+      })
+      
+      setErrors(prev => ({ ...prev, wallet: '' }))
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error)
     }
   }
 
@@ -286,7 +438,7 @@ export default function LauncherPage() {
             </div>
 
             <button
-              onClick={() => setShowPremiumModal(true)}
+              onClick={() => window.location.href = '/premium'}
               className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
             >
               Get Premium Badge
@@ -327,36 +479,52 @@ export default function LauncherPage() {
             Wallet Connection
           </h2>
           
-          {walletInfo.connected ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <CheckCircle className="w-5 h-5 text-green-500" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    Wallet connected: {walletInfo.address}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Balance: {walletInfo.balance.toFixed(4)} SOL
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={copyAddress}
-                className="text-orange-500 hover:text-orange-600 text-sm font-medium transition-colors"
-              >
-                Copy Address
-              </button>
-            </div>
-          ) : (
+                     {walletInfo.connected ? (
+             <div className="flex items-center justify-between">
+               <div className="flex items-center space-x-3">
+                 <CheckCircle className="w-5 h-5 text-green-500" />
+                 <div>
+                   <p className="text-sm font-medium text-gray-900 dark:text-white">
+                     Wallet connected: {walletInfo.address}
+                   </p>
+                   <p className="text-xs text-gray-500 dark:text-gray-400">
+                     Balance: {walletInfo.balance.toFixed(4)} SOL
+                   </p>
+                 </div>
+               </div>
+               <div className="flex items-center space-x-2">
+                 <button
+                   onClick={copyAddress}
+                   className="text-orange-500 hover:text-orange-600 text-sm font-medium transition-colors"
+                 >
+                   Copy Address
+                 </button>
+                 <button
+                   onClick={disconnectWallet}
+                   className="text-red-500 hover:text-red-600 text-sm font-medium transition-colors"
+                 >
+                   Disconnect
+                 </button>
+               </div>
+             </div>
+           ) : (
             <div className="text-center">
               <p className="text-gray-600 dark:text-gray-400 mb-4">
                 Connect your wallet to launch tokens
               </p>
               <button
                 onClick={connectWallet}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                disabled={walletConnecting}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                Connect Wallet
+                {walletConnecting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Connecting...</span>
+                  </>
+                ) : (
+                  <span>Connect Wallet</span>
+                )}
               </button>
             </div>
           )}
@@ -477,7 +645,7 @@ export default function LauncherPage() {
             <div className="grid md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Twitter URL
+                  X URL
                 </label>
                 <input
                   type="url"

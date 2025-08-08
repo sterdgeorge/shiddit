@@ -21,21 +21,7 @@ export interface Community {
   memberCount: number
 }
 
-export interface Message {
-  id: string
-  conversationId: string
-  senderId: string
-  senderUsername: string
-  content: string
-  timestamp: Date
-}
 
-export interface Conversation {
-  id: string
-  participants: string[]
-  lastMessage?: Message
-  lastMessageTime?: Date
-}
 
 export interface UserProfile {
   uid: string
@@ -44,6 +30,7 @@ export interface UserProfile {
   displayName?: string
   bio?: string
   avatar?: string
+  profilePicture?: string
   createdAt: any
   friends: string[]
   isAdmin?: boolean
@@ -52,4 +39,6 @@ export interface UserProfile {
   postKarma?: number
   commentKarma?: number
   totalKarma?: number
+
+  isPremium?: boolean
 } 

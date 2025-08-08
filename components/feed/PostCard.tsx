@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { votePost } from '@/lib/posts'
 import VoteButtons from '@/components/ui/VoteButtons'
-import { MessageSquare, Share, MoreHorizontal, Clock, Award } from 'lucide-react'
+import { Share, MoreHorizontal, Clock, Award, Hash } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PostCardProps {
@@ -20,8 +20,6 @@ interface PostCardProps {
     upvotes: string[]
     downvotes: string[]
     commentCount: number
-    type: 'text' | 'image' | 'video' | 'link' | 'poll'
-    url?: string
     imageUrl?: string
     videoUrl?: string
     isPinned?: boolean
@@ -29,15 +27,47 @@ interface PostCardProps {
   showCommunity?: boolean
 }
 
-export default function PostCard({ post, showCommunity = true }: PostCardProps) {
+export default function PostCard({ post: initialPost, showCommunity = true }: PostCardProps) {
   const { user } = useAuth()
   const [isExpanded, setIsExpanded] = useState(false)
+  const [post, setPost] = useState(initialPost)
 
-  const handleVote = async (postId: string, voteType: 'upvote' | 'downvote' | 'remove') => {
+  const handleVote = async (voteType: 'upvote' | 'downvote') => {
     if (!user) return
-    votePost(postId, user.uid, voteType)
-    // Force re-render by updating the component
-    window.location.reload()
+    
+    try {
+      // Determine the actual vote type based on current state
+      const hasUpvoted = post.upvotes?.includes(user.uid) || false
+      const hasDownvoted = post.downvotes?.includes(user.uid) || false
+      
+      let actualVoteType: 'upvote' | 'downvote' | 'remove'
+      
+      if (voteType === 'upvote') {
+        if (hasUpvoted) {
+          actualVoteType = 'remove'
+        } else {
+          actualVoteType = 'upvote'
+        }
+      } else {
+        if (hasDownvoted) {
+          actualVoteType = 'remove'
+        } else {
+          actualVoteType = 'downvote'
+        }
+      }
+      
+      const result = await votePost(post.id, user.uid, actualVoteType)
+      
+      // Update local state instead of refreshing
+      setPost(prevPost => ({
+        ...prevPost,
+        upvotes: result.upvotes,
+        downvotes: result.downvotes,
+        score: result.score
+      }))
+    } catch (error) {
+      console.error('Error voting:', error)
+    }
   }
 
   const formatTime = (timestamp: any) => {
@@ -54,9 +84,37 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
   }
 
   const renderContent = () => {
-    if (post.type === 'image' && post.imageUrl) {
-      return (
-        <div className="mt-2">
+    const contentElements = []
+
+    // Always show text content if it exists
+    if (post.content) {
+      if (isExpanded || post.content.length < 200) {
+        contentElements.push(
+          <div key="text" className="mt-2 text-gray-700 dark:text-gray-300">
+            <p className="whitespace-pre-wrap">{post.content}</p>
+          </div>
+        )
+      } else {
+        contentElements.push(
+          <div key="text" className="mt-2 text-gray-700 dark:text-gray-300">
+            <p className="whitespace-pre-wrap">
+              {post.content.substring(0, 200)}...
+            </p>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-1"
+            >
+              {isExpanded ? 'Show less' : 'Show more'}
+            </button>
+          </div>
+        )
+      }
+    }
+
+    // Show image if it exists
+    if (post.imageUrl) {
+      contentElements.push(
+        <div key="image" className="mt-2">
           <img 
             src={post.imageUrl} 
             alt={post.title}
@@ -66,10 +124,11 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
         </div>
       )
     }
-    
-    if (post.type === 'video' && post.videoUrl) {
-      return (
-        <div className="mt-2">
+
+    // Show video if it exists
+    if (post.videoUrl) {
+      contentElements.push(
+        <div key="video" className="mt-2">
           <video 
             src={post.videoUrl} 
             controls
@@ -78,47 +137,8 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
         </div>
       )
     }
-    
-    if (post.type === 'link' && post.url) {
-      return (
-        <div className="mt-2">
-          <a 
-            href={post.url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 hover:underline break-all"
-          >
-            {post.url}
-          </a>
-        </div>
-      )
-    }
-    
-    if (post.content && (isExpanded || post.content.length < 200)) {
-      return (
-        <div className="mt-2 text-gray-700 dark:text-gray-300">
-          <p className="whitespace-pre-wrap">{post.content}</p>
-        </div>
-      )
-    }
-    
-    if (post.content && post.content.length >= 200) {
-      return (
-        <div className="mt-2 text-gray-700 dark:text-gray-300">
-          <p className="whitespace-pre-wrap">
-            {post.content.substring(0, 200)}...
-          </p>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-1"
-          >
-            {isExpanded ? 'Show less' : 'Show more'}
-          </button>
-        </div>
-      )
-    }
-    
-    return null
+
+    return contentElements.length > 0 ? contentElements : null
   }
 
   return (
@@ -167,9 +187,9 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
             </div>
           </div>
 
-          {/* Title */}
-          <Link href={`/post/${post.id}`}>
-                         <h2 className="text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 mb-2">
+                    {/* Title */}
+          <Link href={`/s/${post.communityName}/comments/${post.id}`}>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 mb-2">
               {post.title}
             </h2>
           </Link>
@@ -179,31 +199,32 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
 
           {/* Footer */}
           <div className="flex items-center gap-6 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <VoteButtons
-              postId={post.id}
-              initialScore={post.score}
-              initialUpvotes={post.upvotes}
-              initialDownvotes={post.downvotes}
-                             userId={user?.uid}
+                        <VoteButtons
+              score={post.score}
+              upvotes={post.upvotes}
+              downvotes={post.downvotes}
+              userId={user?.uid}
               onVote={handleVote}
               size="sm"
               orientation="horizontal"
             />
             
             <Link 
-              href={`/post/${post.id}`}
+              href={`/s/${post.communityName}/comments/${post.id}`}
               className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-base"
             >
-              <MessageSquare className="w-4 h-4" />
+              <Hash className="w-4 h-4" />
               <span>{post.commentCount} Comments</span>
             </Link>
             
-            <button className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-base">
-              <Award className="w-4 h-4" />
-              <span>Award</span>
-            </button>
-            
-            <button className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-base">
+            <button 
+              onClick={() => {
+                const url = `${window.location.origin}/s/${post.communityName}/comments/${post.id}`
+                navigator.clipboard.writeText(url)
+                // You could add a toast notification here
+              }}
+              className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-base"
+            >
               <Share className="w-4 h-4" />
               <span>Share</span>
             </button>

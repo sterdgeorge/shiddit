@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
-import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, doc, setDoc, query, where, getDocs, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import MainLayout from '@/components/layout/MainLayout'
 import Button from '@/components/ui/Button'
-import { Plus, Hash } from 'lucide-react'
+import { Plus, Hash, Camera } from 'lucide-react'
 
 export default function CreateCommunityPage() {
   const router = useRouter()
@@ -17,6 +17,8 @@ export default function CreateCommunityPage() {
   
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [communityImage, setCommunityImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -50,9 +52,55 @@ export default function CreateCommunityPage() {
       return
     }
 
+    // Validate image if provided
+    if (communityImage) {
+      if (!communityImage.type.startsWith('image/')) {
+        setError('Please select a valid image file')
+        setLoading(false)
+        return
+      }
+      
+      if (communityImage.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Image size must be less than 5MB')
+        setLoading(false)
+        return
+      }
+    }
+
     try {
+            // Check if community name already exists (case insensitive)
+      const allCommunitiesQuery = query(collection(db, 'communities'))
+      const allCommunitiesSnapshot = await getDocs(allCommunitiesQuery)
+      const existingCommunity = allCommunitiesSnapshot.docs.find(doc => 
+        doc.data().name.toLowerCase() === name.toLowerCase()
+      )
+      
+      if (existingCommunity) {
+        setError('Community name already exists')
+        setLoading(false)
+        return
+      }
+
+      // Check community creation limit (5 communities)
+      const userCommunitiesQuery = query(
+        collection(db, 'communities'),
+        where('creatorId', '==', user!.uid)
+      )
+      const userCommunitiesSnapshot = await getDocs(userCommunitiesQuery)
+      const currentCreationCount = userCommunitiesSnapshot.size
+
+      if (currentCreationCount >= 5) {
+        setError('You can only create up to 5 communities. Please delete some communities before creating new ones.')
+        setLoading(false)
+        return
+      }
+
+      // Create community and membership in a batch for consistency
+      const batch = writeBatch(db)
+      
       // Create community document
-      const communityRef = await addDoc(collection(db, 'communities'), {
+      const communityRef = doc(collection(db, 'communities'))
+      const communityData = {
         name: name.toLowerCase(),
         displayName: name,
         description: description.trim(),
@@ -60,22 +108,55 @@ export default function CreateCommunityPage() {
         creatorUsername: userProfile!.username,
         createdAt: serverTimestamp(),
         memberCount: 1,
-        members: [user!.uid]
-      })
-
-      // Create community name reference for uniqueness
-      await setDoc(doc(db, 'communityNames', name.toLowerCase()), {
+        postCount: 0,
+        members: [user!.uid],
+        type: 'public',
+        nsfw: false,
+        imageUrl: null
+      }
+      
+      batch.set(communityRef, communityData)
+      
+      // Create community membership for the creator
+      const membershipRef = doc(collection(db, 'communityMembers'))
+      const membershipData = {
         communityId: communityRef.id,
-        createdAt: serverTimestamp()
-      })
+        userId: user!.uid,
+        username: userProfile!.username,
+        joinedAt: serverTimestamp(),
+        role: 'creator'
+      }
+      
+      batch.set(membershipRef, membershipData)
+      
+      // Commit the batch
+      await batch.commit()
+      console.log('Community and membership created successfully')
+
+      // Upload community image if provided
+      if (communityImage) {
+        try {
+          console.log('Uploading community image:', communityImage.name)
+          const { uploadImage } = await import('@/lib/cloudinary')
+          
+          const imageUrl = await uploadImage(communityImage, `communities/${communityRef.id}`)
+          console.log('Image URL:', imageUrl)
+          
+          // Update community with image URL
+          await updateDoc(communityRef, {
+            imageUrl: imageUrl
+          })
+          console.log('Community updated with image URL')
+        } catch (uploadError) {
+          console.error('Error uploading community image:', uploadError)
+          // Continue without image if upload fails
+        }
+      }
 
       router.push(`/s/${name.toLowerCase()}`)
     } catch (error: any) {
-      if (error.code === 'permission-denied') {
-        setError('Community name already exists')
-      } else {
-        setError(error.message || 'Failed to create community')
-      }
+      console.error('Error creating community:', error)
+      setError('Failed to create community. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -163,6 +244,59 @@ export default function CreateCommunityPage() {
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {description.length}/500 characters
+                </p>
+              </div>
+
+              {/* Community Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Community Image (Optional)
+                </label>
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
+                    {imagePreview ? (
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Hash className="w-8 h-8 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors">
+                      <Camera className="w-4 h-4 mr-2" />
+                      Choose Image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            setCommunityImage(file)
+                            setImagePreview(URL.createObjectURL(file))
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                    {communityImage && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCommunityImage(null)
+                          setImagePreview(null)
+                        }}
+                        className="ml-2 text-sm text-red-500 hover:text-red-600"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Upload a square image (max 5MB) to represent your community
                 </p>
               </div>
 

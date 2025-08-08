@@ -14,7 +14,7 @@ export default function DemoPage() {
             Welcome to Shiddit
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 mb-8">
-            A Reddit-style platform with voting, communities, and karma system
+            A Reddit-style platform with voting, communities, and shit system
           </p>
           <div className="flex justify-center space-x-4">
             <Button className="btn-primary">
@@ -52,10 +52,10 @@ export default function DemoPage() {
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
             <TrendingUp className="w-8 h-8 text-green-500 mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Karma System
+              Shit System
             </h3>
             <p className="text-gray-600 dark:text-gray-400">
-              Earn karma through upvotes. Separate post karma and comment karma tracking.
+              Earn shit through upvotes. Separate post shit and comment shit tracking.
             </p>
           </div>
 
@@ -155,7 +155,7 @@ export default function DemoPage() {
             Ready to Explore?
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Experience the full Reddit-style interface with voting, sorting, and karma system
+            Experience the full Reddit-style interface with voting, sorting, and shit system
           </p>
           <div className="flex justify-center space-x-4">
             <Button className="btn-primary">
