@@ -30,8 +30,9 @@ export default function LoginPopup({ isOpen, onClose }: LoginPopupProps) {
 
     try {
       if (mode === 'login') {
-        // Login
-        await loginUser(email, password)
+        // Login - use username if provided, otherwise use email
+        const loginIdentifier = username.trim() || email
+        await loginUser(loginIdentifier, password)
         onClose()
         window.location.reload()
       } else if (mode === 'register') {
@@ -163,10 +164,23 @@ export default function LoginPopup({ isOpen, onClose }: LoginPopupProps) {
             </div>
           )}
 
+          {mode === 'login' && (
+            <div>
+              <input
+                type="text"
+                placeholder="Username *"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                required
+              />
+            </div>
+          )}
+
           <div>
             <input
               type="email"
-              placeholder={mode === 'forgot' ? 'Email *' : 'Email or username *'}
+              placeholder="Email *"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"

@@ -189,6 +189,10 @@ export const getTopComments = async (limitCount: number = 10) => {
 // Vote on post
 export const votePost = async (postId: string, userId: string, voteType: 'upvote' | 'downvote' | 'remove') => {
   try {
+    if (!userId) {
+      throw new Error('User ID is required to vote')
+    }
+    
     const postRef = doc(db, 'posts', postId)
     const postDoc = await getDoc(postRef)
     

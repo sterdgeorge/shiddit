@@ -6,3 +6,10 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=shiddit-d1ccb.firebasestorage.app
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=929483961055
 NEXT_PUBLIC_FIREBASE_APP_ID=1:929483961055:web:37abdd1638117d8a1eaf6a
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-R4W9HDBFCE
+
+# Cloudinary Configuration
+# Replace these with your actual Cloudinary credentials from your Cloudinary dashboard
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name_here
+NEXT_PUBLIC_CLOUDINARY_API_KEY=your_api_key_here
+CLOUDINARY_API_SECRET=your_api_secret_here
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=shiddit_uploads

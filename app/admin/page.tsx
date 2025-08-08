@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
-import { doc, updateDoc, deleteDoc, collection, query, getDocs, where, orderBy, limit } from 'firebase/firestore'
+import { doc, updateDoc, deleteDoc, collection, query, getDocs, getDoc, setDoc, where, orderBy, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import MainLayout from '@/components/layout/MainLayout'
 import { Shield, Crown, CheckCircle, AlertCircle, User, Settings, Trash2, Ban, Users, MessageSquare, Eye, Search, Filter, RefreshCw } from 'lucide-react'
@@ -54,9 +54,18 @@ export default function AdminPage() {
   const [pendingVerifications, setPendingVerifications] = useState<UserProfile[]>([])
   
   // UI states
-  const [activeTab, setActiveTab] = useState<'overview' | 'posts' | 'communities' | 'users' | 'verifications'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'posts' | 'communities' | 'users' | 'verifications' | 'fake-stats'>('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'admin' | 'premium' | 'verified'>('all')
+  
+  // Fake stats states
+  const [fakeStats, setFakeStats] = useState({
+    totalUsers: 0,
+    onlineUsers: 0,
+    totalLikes: 0,
+    totalMembers: 0
+  })
+  const [editingStats, setEditingStats] = useState(false)
 
   // Check if user is super admin
   const isSuperAdmin = userProfile?.isAdmin
@@ -107,6 +116,22 @@ export default function AdminPage() {
         ...doc.data()
       })) as UserProfile[]
       setPendingVerifications(pendingData)
+
+      // Fetch fake stats
+      try {
+        const statsDoc = await getDoc(doc(db, 'admin', 'fakeStats'))
+        if (statsDoc.exists()) {
+          const data = statsDoc.data()
+          setFakeStats({
+            totalUsers: data.totalUsers || 0,
+            onlineUsers: data.onlineUsers || 0,
+            totalLikes: data.totalLikes || 0,
+            totalMembers: data.totalMembers || 0
+          })
+        }
+      } catch (error) {
+        console.log('No fake stats found, using defaults')
+      }
 
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -193,6 +218,22 @@ export default function AdminPage() {
       console.error('Error verifying user:', error)
       showMessage('Failed to verify user', 'error')
     }
+  }
+
+  const updateFakeStats = async (newStats: typeof fakeStats) => {
+    try {
+      await setDoc(doc(db, 'admin', 'fakeStats'), newStats)
+      setFakeStats(newStats)
+      setEditingStats(false)
+      showMessage('Fake statistics updated successfully', 'success')
+    } catch (error) {
+      console.error('Error updating fake stats:', error)
+      showMessage('Failed to update fake statistics', 'error')
+    }
+  }
+
+  const saveFakeStats = () => {
+    updateFakeStats(fakeStats)
   }
 
   const setupGodUser = async () => {
@@ -334,7 +375,8 @@ export default function AdminPage() {
             { id: 'posts', label: 'Posts', icon: MessageSquare },
             { id: 'communities', label: 'Communities', icon: Users },
             { id: 'users', label: 'Users', icon: User },
-            { id: 'verifications', label: 'Verifications', icon: CheckCircle }
+            { id: 'verifications', label: 'Verifications', icon: CheckCircle },
+            { id: 'fake-stats', label: 'Fake Stats', icon: Settings }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -546,6 +588,130 @@ export default function AdminPage() {
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Fake Stats Tab */}
+          {activeTab === 'fake-stats' && (
+            <div className="card">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Manage Fake Statistics</h3>
+                  <div className="flex items-center space-x-2">
+                    {editingStats ? (
+                      <>
+                        <button
+                          onClick={saveFakeStats}
+                          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingStats(false)}
+                          className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setEditingStats(true)}
+                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                      >
+                        Edit Stats
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Total Users
+                      </label>
+                      {editingStats ? (
+                        <input
+                          type="number"
+                          value={fakeStats.totalUsers}
+                          onChange={(e) => setFakeStats(prev => ({ ...prev, totalUsers: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                      ) : (
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {fakeStats.totalUsers.toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Online Users
+                      </label>
+                      {editingStats ? (
+                        <input
+                          type="number"
+                          value={fakeStats.onlineUsers}
+                          onChange={(e) => setFakeStats(prev => ({ ...prev, onlineUsers: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                      ) : (
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {fakeStats.onlineUsers.toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Total Likes
+                      </label>
+                      {editingStats ? (
+                        <input
+                          type="number"
+                          value={fakeStats.totalLikes}
+                          onChange={(e) => setFakeStats(prev => ({ ...prev, totalLikes: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                      ) : (
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {fakeStats.totalLikes.toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Total Community Members
+                      </label>
+                      {editingStats ? (
+                        <input
+                          type="number"
+                          value={fakeStats.totalMembers}
+                          onChange={(e) => setFakeStats(prev => ({ ...prev, totalMembers: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                      ) : (
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {fakeStats.totalMembers.toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <Settings className="w-4 h-4 text-blue-500" />
+                    <span className="text-sm text-blue-600 dark:text-blue-400">
+                      These fake statistics will be displayed to users to make the platform appear more active and popular.
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
