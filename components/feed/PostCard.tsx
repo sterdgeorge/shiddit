@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { votePost } from '@/lib/posts'
+import { joinCommunity, isCommunityMember } from '@/lib/communities'
 import VoteButtons from '@/components/ui/VoteButtons'
 import { Share, Clock, Award, Hash } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -32,6 +33,51 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
   const { user } = useAuth()
   const [isExpanded, setIsExpanded] = useState(false)
   const [post, setPost] = useState(initialPost)
+  const [isMember, setIsMember] = useState(false)
+  const [joining, setJoining] = useState(false)
+
+  // Check if user is a member of this community
+  useEffect(() => {
+    const checkMembership = async () => {
+      if (user && post.communityName) {
+        try {
+          // For now, we'll use a simple approach - you can enhance this later
+          // by storing community IDs in the post data or fetching community info
+          const membership = await isCommunityMember(post.communityName, user.uid)
+          setIsMember(membership)
+        } catch (error) {
+          console.error('Error checking membership:', error)
+        }
+      }
+    }
+    
+    checkMembership()
+  }, [user, post.communityName])
+
+  const handleJoinCommunity = async () => {
+    if (!user) {
+      alert('Please log in to join communities')
+      return
+    }
+
+    setJoining(true)
+    try {
+      // For now, we'll use the community name as ID
+      // In a real implementation, you'd want to store community IDs in posts
+      await joinCommunity(post.communityName, user.uid, user.displayName || user.email?.split('@')[0] || 'Anonymous')
+      setIsMember(true)
+      alert('Successfully joined the community!')
+    } catch (error) {
+      console.error('Error joining community:', error)
+      if (error instanceof Error) {
+        alert(error.message)
+      } else {
+        alert('Failed to join community')
+      }
+    } finally {
+      setJoining(false)
+    }
+  }
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
     console.log('handleVote called:', { 
@@ -197,25 +243,17 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
           </div>
           <div className="flex items-center gap-2">
             <button 
-              onClick={async () => {
-                if (!user) {
-                  // Show login prompt or redirect to login
-                  alert('Please log in to join communities')
-                  return
-                }
-                
-                try {
-                  // Add community membership logic here
-                  console.log('Joining community:', post.communityName)
-                  // TODO: Implement actual join functionality
-                  alert('Join functionality coming soon!')
-                } catch (error) {
-                  console.error('Error joining community:', error)
-                }
-              }}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors"
+              onClick={handleJoinCommunity}
+              disabled={joining}
+              className={cn(
+                "px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium transition-colors",
+                isMember 
+                  ? "bg-gray-500 hover:bg-gray-600 text-white cursor-not-allowed"
+                  : "bg-blue-500 hover:bg-blue-600 text-white",
+                joining && "opacity-50 cursor-not-allowed"
+              )}
             >
-              Join
+              {joining ? 'Joining...' : isMember ? 'Joined' : 'Join'}
             </button>
           </div>
         </div>
