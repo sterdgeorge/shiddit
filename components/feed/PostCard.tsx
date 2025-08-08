@@ -30,7 +30,7 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post: initialPost, showCommunity = true }: PostCardProps) {
-  const { user } = useAuth()
+  const { user, userProfile } = useAuth()
   const [isExpanded, setIsExpanded] = useState(false)
   const [post, setPost] = useState(initialPost)
   const [isMember, setIsMember] = useState(false)
@@ -79,13 +79,14 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
     }
   }
 
-  const handleVote = async (voteType: 'upvote' | 'downvote') => {
+  const handleVote = async (voteType: 'upvote' | 'downvote', isAdmin: boolean = false) => {
     console.log('handleVote called:', { 
       voteType, 
       userId: user?.uid, 
       postId: post.id, 
       postAuthor: post.authorUsername,
-      isOwnPost: user?.uid === post.authorId 
+      isOwnPost: user?.uid === post.authorId,
+      isAdmin
     })
     
     if (!user) {
@@ -103,7 +104,7 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
       let actualVoteType: 'upvote' | 'downvote' | 'remove'
       
       if (voteType === 'upvote') {
-        if (hasUpvoted) {
+        if (hasUpvoted && !isAdmin) {
           actualVoteType = 'remove'
         } else {
           actualVoteType = 'upvote'
@@ -116,9 +117,9 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
         }
       }
       
-      console.log('Calling votePost with:', { postId: post.id, userId: user.uid, voteType: actualVoteType })
+      console.log('Calling votePost with:', { postId: post.id, userId: user.uid, voteType: actualVoteType, isAdmin })
       
-      const result = await votePost(post.id, user.uid, actualVoteType)
+      const result = await votePost(post.id, user.uid, actualVoteType, isAdmin)
       
       console.log('Vote result:', result)
       
@@ -279,6 +280,7 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
               onVote={handleVote}
               size="sm"
               orientation="horizontal"
+              isAdmin={userProfile?.isAdmin || false}
             />
             {!user && (
               <span className="text-xs text-gray-500 dark:text-gray-400">

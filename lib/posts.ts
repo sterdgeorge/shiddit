@@ -187,9 +187,9 @@ export const getTopComments = async (limitCount: number = 10) => {
 }
 
 // Vote on post
-export const votePost = async (postId: string, userId: string, voteType: 'upvote' | 'downvote' | 'remove') => {
+export const votePost = async (postId: string, userId: string, voteType: 'upvote' | 'downvote' | 'remove', isAdmin: boolean = false) => {
   try {
-    console.log('votePost called:', { postId, userId, voteType })
+    console.log('votePost called:', { postId, userId, voteType, isAdmin })
     
     if (!userId) {
       throw new Error('User ID is required to vote')
@@ -213,15 +213,29 @@ export const votePost = async (postId: string, userId: string, voteType: 'upvote
     const upvotes = postData.upvotes || []
     const downvotes = postData.downvotes || []
     
-    // Remove existing votes
-    const newUpvotes = upvotes.filter((id: string) => id !== userId)
-    const newDownvotes = downvotes.filter((id: string) => id !== userId)
+    let newUpvotes = [...upvotes]
+    let newDownvotes = [...downvotes]
     
-    // Add new vote
-    if (voteType === 'upvote') {
-      newUpvotes.push(userId)
-    } else if (voteType === 'downvote') {
-      newDownvotes.push(userId)
+    // Handle admin unlimited upvoting
+    if (isAdmin && voteType === 'upvote') {
+      // Admins can add unlimited upvotes without removing previous ones
+      if (!newUpvotes.includes(userId)) {
+        newUpvotes.push(userId)
+      }
+      // Remove from downvotes if admin was downvoting
+      newDownvotes = newDownvotes.filter((id: string) => id !== userId)
+    } else {
+      // Regular user voting logic
+      // Remove existing votes
+      newUpvotes = upvotes.filter((id: string) => id !== userId)
+      newDownvotes = downvotes.filter((id: string) => id !== userId)
+      
+      // Add new vote
+      if (voteType === 'upvote') {
+        newUpvotes.push(userId)
+      } else if (voteType === 'downvote') {
+        newDownvotes.push(userId)
+      }
     }
     
     // Calculate new score
@@ -230,7 +244,8 @@ export const votePost = async (postId: string, userId: string, voteType: 'upvote
     console.log('Updating post with:', { 
       newUpvotes: newUpvotes.length, 
       newDownvotes: newDownvotes.length, 
-      newScore 
+      newScore,
+      isAdmin
     })
     
     // Update the post

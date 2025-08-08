@@ -9,10 +9,11 @@ interface VoteButtonsProps {
   upvotes: string[]
   downvotes: string[]
   userId?: string
-  onVote: (voteType: 'upvote' | 'downvote') => void
+  onVote: (voteType: 'upvote' | 'downvote', isAdmin?: boolean) => void
   size?: 'sm' | 'md' | 'lg'
   orientation?: 'vertical' | 'horizontal'
   isComment?: boolean
+  isAdmin?: boolean
 }
 
 export default function VoteButtons({
@@ -23,7 +24,8 @@ export default function VoteButtons({
   onVote,
   size = 'md',
   orientation = 'vertical',
-  isComment = false
+  isComment = false,
+  isAdmin = false
 }: VoteButtonsProps) {
   const [isVoting, setIsVoting] = useState(false)
 
@@ -31,7 +33,7 @@ export default function VoteButtons({
   const hasDownvoted = userId && downvotes ? downvotes.includes(userId) : false
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
-    console.log('VoteButtons handleVote called:', { voteType, userId, isVoting })
+    console.log('VoteButtons handleVote called:', { voteType, userId, isVoting, isAdmin })
     
     if (!userId || isVoting) {
       console.log('Vote blocked:', { userId: !!userId, isVoting })
@@ -40,8 +42,8 @@ export default function VoteButtons({
 
     setIsVoting(true)
     try {
-      console.log('Calling onVote function')
-      await onVote(voteType)
+      console.log('Calling onVote function with admin status:', isAdmin)
+      await onVote(voteType, isAdmin)
       console.log('Vote successful')
     } catch (error) {
       console.error('Vote failed:', error)

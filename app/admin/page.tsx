@@ -67,6 +67,10 @@ export default function AdminPage() {
     totalMembers: 0
   })
   const [editingStats, setEditingStats] = useState(false)
+  
+  // Community member count editing states
+  const [editingMemberCounts, setEditingMemberCounts] = useState<{[key: string]: boolean}>({})
+  const [memberCountInputs, setMemberCountInputs] = useState<{[key: string]: number}>({})
 
   // Check if user is super admin
   const isSuperAdmin = userProfile?.isAdmin
@@ -172,6 +176,23 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Error deleting community:', error)
       showMessage('Failed to delete community', 'error')
+    }
+  }
+
+  const updateCommunityMemberCount = async (communityId: string, newMemberCount: number) => {
+    try {
+      await updateDoc(doc(db, 'communities', communityId), {
+        memberCount: newMemberCount
+      })
+      setCommunities(prev => prev.map(community => 
+        community.id === communityId 
+          ? { ...community, memberCount: newMemberCount }
+          : community
+      ))
+      showMessage('Community member count updated successfully', 'success')
+    } catch (error) {
+      console.error('Error updating community member count:', error)
+      showMessage('Failed to update community member count', 'error')
     }
   }
 
@@ -506,9 +527,62 @@ export default function AdminPage() {
                   <div key={community.id} className="p-4 flex items-center justify-between">
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 dark:text-white">s/{community.name}</h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {community.memberCount} members • Created by u/{community.creatorUsername}
-                      </p>
+                      <div className="flex items-center space-x-2 mt-1">
+                        {editingMemberCounts[community.id] ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="number"
+                              value={memberCountInputs[community.id] || community.memberCount}
+                              onChange={(e) => setMemberCountInputs(prev => ({
+                                ...prev,
+                                [community.id]: parseInt(e.target.value) || 0
+                              }))}
+                              className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                              min="0"
+                            />
+                            <span className="text-sm text-gray-500 dark:text-gray-400">members</span>
+                            <button
+                              onClick={() => {
+                                const newCount = memberCountInputs[community.id] || community.memberCount
+                                updateCommunityMemberCount(community.id, newCount)
+                                setEditingMemberCounts(prev => ({ ...prev, [community.id]: false }))
+                              }}
+                              className="px-2 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingMemberCounts(prev => ({ ...prev, [community.id]: false }))
+                                setMemberCountInputs(prev => ({ ...prev, [community.id]: community.memberCount }))
+                              }}
+                              className="px-2 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              {community.memberCount} members
+                            </span>
+                            <button
+                              onClick={() => {
+                                setEditingMemberCounts(prev => ({ ...prev, [community.id]: true }))
+                                setMemberCountInputs(prev => ({ ...prev, [community.id]: community.memberCount }))
+                              }}
+                              className="px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
+                              title="Edit member count"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )}
+                        <span className="text-gray-400">•</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          Created by u/{community.creatorUsername}
+                        </span>
+                      </div>
                       <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{community.description}</p>
                     </div>
                     <button
