@@ -6,6 +6,7 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import { votePost } from '@/lib/posts'
 import { joinCommunity, isCommunityMember } from '@/lib/communities'
 import VoteButtons from '@/components/ui/VoteButtons'
+import AdminVoteButtons from '@/components/ui/AdminVoteButtons'
 import { Share, Clock, Award, Hash } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -35,6 +36,9 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
   const [post, setPost] = useState(initialPost)
   const [isMember, setIsMember] = useState(false)
   const [joining, setJoining] = useState(false)
+  
+  // Check if user is admin
+  const isAdmin = userProfile?.isAdmin || false
 
   // Check if user is a member of this community
   useEffect(() => {
@@ -79,14 +83,13 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
     }
   }
 
-  const handleVote = async (voteType: 'upvote' | 'downvote', isAdmin: boolean = false) => {
+  const handleVote = async (voteType: 'upvote' | 'downvote') => {
     console.log('handleVote called:', { 
       voteType, 
       userId: user?.uid, 
       postId: post.id, 
       postAuthor: post.authorUsername,
-      isOwnPost: user?.uid === post.authorId,
-      isAdmin
+      isOwnPost: user?.uid === post.authorId 
     })
     
     if (!user) {
@@ -104,7 +107,7 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
       let actualVoteType: 'upvote' | 'downvote' | 'remove'
       
       if (voteType === 'upvote') {
-        if (hasUpvoted && !isAdmin) {
+        if (hasUpvoted) {
           actualVoteType = 'remove'
         } else {
           actualVoteType = 'upvote'
@@ -117,9 +120,9 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
         }
       }
       
-      console.log('Calling votePost with:', { postId: post.id, userId: user.uid, voteType: actualVoteType, isAdmin })
+      console.log('Calling votePost with:', { postId: post.id, userId: user.uid, voteType: actualVoteType })
       
-      const result = await votePost(post.id, user.uid, actualVoteType, isAdmin)
+      const result = await votePost(post.id, user.uid, actualVoteType)
       
       console.log('Vote result:', result)
       
@@ -272,16 +275,28 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
         {/* Footer */}
         <div className="flex items-center gap-3 sm:gap-6 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
-            <VoteButtons
-              score={post.score}
-              upvotes={post.upvotes}
-              downvotes={post.downvotes}
-              userId={user?.uid}
-              onVote={handleVote}
-              size="sm"
-              orientation="horizontal"
-              isAdmin={userProfile?.isAdmin || false}
-            />
+            {isAdmin ? (
+              <AdminVoteButtons
+                postId={post.id}
+                score={post.score}
+                upvotes={post.upvotes}
+                downvotes={post.downvotes}
+                userId={user?.uid}
+                onVote={handleVote}
+                size="sm"
+                orientation="horizontal"
+              />
+            ) : (
+              <VoteButtons
+                score={post.score}
+                upvotes={post.upvotes}
+                downvotes={post.downvotes}
+                userId={user?.uid}
+                onVote={handleVote}
+                size="sm"
+                orientation="horizontal"
+              />
+            )}
             {!user && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 Login to vote

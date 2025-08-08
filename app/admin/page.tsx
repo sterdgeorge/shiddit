@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
 import { doc, updateDoc, deleteDoc, collection, query, getDocs, getDoc, setDoc, where, orderBy, limit } from 'firebase/firestore'
+import { adminModifyCommunityMembers } from '@/lib/admin'
 import { db } from '@/lib/firebase'
 import MainLayout from '@/components/layout/MainLayout'
 import { Shield, Crown, CheckCircle, AlertCircle, User, Settings, Trash2, Ban, Users, MessageSquare, Eye, Search, Filter, RefreshCw } from 'lucide-react'
@@ -67,10 +68,6 @@ export default function AdminPage() {
     totalMembers: 0
   })
   const [editingStats, setEditingStats] = useState(false)
-  
-  // Community member count editing states
-  const [editingMemberCounts, setEditingMemberCounts] = useState<{[key: string]: boolean}>({})
-  const [memberCountInputs, setMemberCountInputs] = useState<{[key: string]: number}>({})
 
   // Check if user is super admin
   const isSuperAdmin = userProfile?.isAdmin
@@ -179,23 +176,6 @@ export default function AdminPage() {
     }
   }
 
-  const updateCommunityMemberCount = async (communityId: string, newMemberCount: number) => {
-    try {
-      await updateDoc(doc(db, 'communities', communityId), {
-        memberCount: newMemberCount
-      })
-      setCommunities(prev => prev.map(community => 
-        community.id === communityId 
-          ? { ...community, memberCount: newMemberCount }
-          : community
-      ))
-      showMessage('Community member count updated successfully', 'success')
-    } catch (error) {
-      console.error('Error updating community member count:', error)
-      showMessage('Failed to update community member count', 'error')
-    }
-  }
-
   const banUser = async (userId: string, username: string) => {
     if (!confirm(`Are you sure you want to ban user "${username}"? This will delete their account and all their posts.`)) return
     
@@ -256,6 +236,26 @@ export default function AdminPage() {
 
   const saveFakeStats = () => {
     updateFakeStats(fakeStats)
+  }
+
+  const modifyCommunityMembers = async (communityId: string, newMemberCount: number) => {
+    if (!user) return
+    
+    try {
+      await adminModifyCommunityMembers(communityId, user.uid, newMemberCount)
+      
+      // Update local state
+      setCommunities(prev => prev.map(community => 
+        community.id === communityId 
+          ? { ...community, memberCount: newMemberCount }
+          : community
+      ))
+      
+      showMessage(`Community member count updated to ${newMemberCount}`, 'success')
+    } catch (error) {
+      console.error('Error modifying community member count:', error)
+      showMessage('Failed to modify community member count', 'error')
+    }
   }
 
   const setupGodUser = async () => {
@@ -527,60 +527,32 @@ export default function AdminPage() {
                   <div key={community.id} className="p-4 flex items-center justify-between">
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 dark:text-white">s/{community.name}</h4>
-                      <div className="flex items-center space-x-2 mt-1">
-                        {editingMemberCounts[community.id] ? (
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="number"
-                              value={memberCountInputs[community.id] || community.memberCount}
-                              onChange={(e) => setMemberCountInputs(prev => ({
-                                ...prev,
-                                [community.id]: parseInt(e.target.value) || 0
-                              }))}
-                              className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              min="0"
-                            />
-                            <span className="text-sm text-gray-500 dark:text-gray-400">members</span>
-                            <button
-                              onClick={() => {
-                                const newCount = memberCountInputs[community.id] || community.memberCount
-                                updateCommunityMemberCount(community.id, newCount)
-                                setEditingMemberCounts(prev => ({ ...prev, [community.id]: false }))
-                              }}
-                              className="px-2 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded transition-colors"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingMemberCounts(prev => ({ ...prev, [community.id]: false }))
-                                setMemberCountInputs(prev => ({ ...prev, [community.id]: community.memberCount }))
-                              }}
-                              className="px-2 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {community.memberCount} members
-                            </span>
-                            <button
-                              onClick={() => {
-                                setEditingMemberCounts(prev => ({ ...prev, [community.id]: true }))
-                                setMemberCountInputs(prev => ({ ...prev, [community.id]: community.memberCount }))
-                              }}
-                              className="px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
-                              title="Edit member count"
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        )}
-                        <span className="text-gray-400">•</span>
+                      <div className="flex items-center space-x-4 mt-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {community.memberCount} members
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={community.memberCount}
+                            onChange={(e) => {
+                              const newCount = parseInt(e.target.value) || 0
+                              setCommunities(prev => prev.map(c => 
+                                c.id === community.id ? { ...c, memberCount: newCount } : c
+                              ))
+                            }}
+                            onBlur={(e) => {
+                              const newCount = parseInt(e.target.value) || 0
+                              if (newCount !== community.memberCount) {
+                                modifyCommunityMembers(community.id, newCount)
+                              }
+                            }}
+                            className="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          />
+                        </div>
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          Created by u/{community.creatorUsername}
+                          • Created by u/{community.creatorUsername}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{community.description}</p>

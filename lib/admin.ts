@@ -9,7 +9,8 @@ import {
   getDocs,
   writeBatch,
   serverTimestamp,
-  getDoc
+  getDoc,
+  increment
 } from 'firebase/firestore'
 
 export interface AdminUser {
@@ -46,13 +47,133 @@ export const isAdmin = async (userId: string): Promise<boolean> => {
   try {
     const userDoc = await getDoc(doc(db, 'users', userId))
     if (userDoc.exists()) {
-      const userData = userDoc.data()
-      return userData.isAdmin === true
+      return userDoc.data().isAdmin === true
     }
     return false
   } catch (error) {
     console.error('Error checking admin status:', error)
     return false
+  }
+}
+
+// Admin unlimited voting on posts
+export const adminVotePost = async (postId: string, userId: string, voteType: 'upvote' | 'downvote' | 'remove', voteCount: number = 1) => {
+  try {
+    // Check if user is admin
+    const adminStatus = await isAdmin(userId)
+    if (!adminStatus) {
+      throw new Error('Only admins can use unlimited voting')
+    }
+
+    const postRef = doc(db, 'posts', postId)
+    const postDoc = await getDoc(postRef)
+    
+    if (!postDoc.exists()) {
+      throw new Error('Post not found')
+    }
+    
+    const postData = postDoc.data()
+    const upvotes = postData.upvotes || []
+    const downvotes = postData.downvotes || []
+    
+    let newUpvotes = [...upvotes]
+    let newDownvotes = [...downvotes]
+    
+    if (voteType === 'upvote') {
+      // Add multiple upvotes (admin can vote multiple times)
+      for (let i = 0; i < voteCount; i++) {
+        newUpvotes.push(userId)
+      }
+    } else if (voteType === 'downvote') {
+      // Add multiple downvotes (admin can vote multiple times)
+      for (let i = 0; i < voteCount; i++) {
+        newDownvotes.push(userId)
+      }
+    } else if (voteType === 'remove') {
+      // Remove all votes by this admin
+      newUpvotes = newUpvotes.filter((id: string) => id !== userId)
+      newDownvotes = newDownvotes.filter((id: string) => id !== userId)
+    }
+    
+    // Calculate new score
+    const newScore = newUpvotes.length - newDownvotes.length
+    
+    // Update the post
+    await updateDoc(postRef, {
+      upvotes: newUpvotes,
+      downvotes: newDownvotes,
+      score: newScore
+    })
+    
+    return {
+      id: postId,
+      upvotes: newUpvotes,
+      downvotes: newDownvotes,
+      score: newScore,
+      adminVoteCount: voteCount
+    }
+  } catch (error) {
+    console.error('Error with admin voting:', error)
+    throw error
+  }
+}
+
+// Admin modify community member count
+export const adminModifyCommunityMembers = async (communityId: string, userId: string, newMemberCount: number) => {
+  try {
+    // Check if user is admin
+    const adminStatus = await isAdmin(userId)
+    if (!adminStatus) {
+      throw new Error('Only admins can modify community member counts')
+    }
+
+    const communityRef = doc(db, 'communities', communityId)
+    const communityDoc = await getDoc(communityRef)
+    
+    if (!communityDoc.exists()) {
+      throw new Error('Community not found')
+    }
+    
+    // Update the member count
+    await updateDoc(communityRef, {
+      memberCount: newMemberCount
+    })
+    
+    return {
+      id: communityId,
+      memberCount: newMemberCount
+    }
+  } catch (error) {
+    console.error('Error modifying community member count:', error)
+    throw error
+  }
+}
+
+// Admin get community info
+export const adminGetCommunity = async (communityId: string) => {
+  try {
+    const communityRef = doc(db, 'communities', communityId)
+    const communityDoc = await getDoc(communityRef)
+    
+    if (!communityDoc.exists()) {
+      throw new Error('Community not found')
+    }
+    
+    const data = communityDoc.data()
+    return {
+      id: communityDoc.id,
+      name: data.name,
+      displayName: data.displayName,
+      description: data.description,
+      creatorId: data.creatorId,
+      creatorUsername: data.creatorUsername,
+      createdAt: data.createdAt,
+      memberCount: data.memberCount || 0,
+      imageUrl: data.imageUrl
+    }
+  } catch (error) {
+    console.error('Error getting community:', error)
+    throw error
   }
 }
 
