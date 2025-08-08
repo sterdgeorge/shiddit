@@ -143,20 +143,20 @@ export default function PostPage() {
         if (voteType === 'upvote') {
           if (currentUpvotes.includes(user.uid)) {
             // Remove upvote
-            newUpvotes = currentUpvotes.filter(id => id !== user.uid)
+            newUpvotes = currentUpvotes.filter((id: string) => id !== user.uid)
           } else {
             // Add upvote, remove downvote if exists
             newUpvotes.push(user.uid)
-            newDownvotes = currentDownvotes.filter(id => id !== user.uid)
+            newDownvotes = currentDownvotes.filter((id: string) => id !== user.uid)
           }
         } else {
           if (currentDownvotes.includes(user.uid)) {
             // Remove downvote
-            newDownvotes = currentDownvotes.filter(id => id !== user.uid)
+            newDownvotes = currentDownvotes.filter((id: string) => id !== user.uid)
           } else {
             // Add downvote, remove upvote if exists
             newDownvotes.push(user.uid)
-            newUpvotes = currentUpvotes.filter(id => id !== user.uid)
+            newUpvotes = currentUpvotes.filter((id: string) => id !== user.uid)
           }
         }
 

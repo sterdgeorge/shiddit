@@ -293,7 +293,7 @@ export default function LauncherPage() {
         volume24h: 0,
         holders: 0,
         creatorId: user!.uid,
-        creatorUsername: user!.username || user!.displayName || 'Unknown',
+        creatorUsername: user!.displayName || user!.email?.split('@')[0] || 'Unknown',
         imageUrl: imagePreview || undefined,
         websiteUrl: form.websiteUrl || undefined,
         communityId: form.createCommunity ? form.name.toLowerCase() : undefined,

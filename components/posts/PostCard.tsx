@@ -135,12 +135,11 @@ export default function PostCard({ post, showCommunity = true }: PostCardProps) 
         {/* Voting Section */}
         <div className="flex flex-col items-center p-2 bg-gray-50 dark:bg-gray-900">
           <VoteButtons
-            postId={post.id}
-            initialScore={post.score}
-            initialUpvotes={post.upvotes}
-            initialDownvotes={post.downvotes}
-                         userId={user?.uid}
-            onVote={handleVote}
+            score={post.score}
+            upvotes={post.upvotes}
+            downvotes={post.downvotes}
+            userId={user?.uid}
+            onVote={(voteType) => handleVote(post.id, voteType)}
             size="md"
           />
         </div>

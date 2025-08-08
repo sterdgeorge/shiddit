@@ -28,7 +28,33 @@ export interface UserProfile {
   commentKarma?: number
   totalKarma?: number
 
+  // Premium and verification properties
   isPremium?: boolean
+  isVerified?: boolean
+  premiumSince?: Date
+  verificationStatus?: string
+  verificationStep?: 'initial' | 'payment' | 'confirmation'
+  
+  // Payment verification properties
+  waitingForPayment?: boolean
+  senderAddress?: string
+  paymentRequestedAt?: Date
+  paymentConfirmedAt?: Date
+  
+  // Admin properties
+  adminLevel?: string
+  canDeletePosts?: boolean
+  canBanUsers?: boolean
+  canManageCommunities?: boolean
+  adminGrantedAt?: Date
+  adminGrantedBy?: string
+  
+  // Social links
+  twitterLink?: string
+  websiteLink?: string
+  
+  // Privacy settings
+  allowMessages?: boolean
 }
 
 export const registerUser = async (
