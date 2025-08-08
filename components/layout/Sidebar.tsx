@@ -6,7 +6,7 @@ import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
 import { Home, Trophy, Settings, Plus, Shield, Users, Star, Heart, Zap, User, ArrowLeftRight, Rocket, Crown, Users as UsersIcon, Hash, Coins } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getSiteStats, SiteStats } from '@/lib/stats'
+import { getCombinedStats, CombinedStats } from '@/lib/stats'
 import { useEffect, useState } from 'react'
 
 
@@ -14,21 +14,19 @@ export default function Sidebar() {
   const pathname = usePathname()
   const { user, userProfile } = useAuth()
   const { showLoginPopup } = useLogin()
-  const [siteStats, setSiteStats] = useState<SiteStats>({
+  const [siteStats, setSiteStats] = useState<CombinedStats>({
     totalUsers: 0,
-    totalPosts: 0,
+    onlineUsers: 1,
+    totalLikes: 0,
     totalCommunities: 0,
-    totalComments: 0,
-    usersOnline: 1,
-    verifiedUsers: 0,
-    activeUsers: 0
+    totalMembers: 0
   })
 
   // Fetch site stats
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const stats = await getSiteStats()
+        const stats = await getCombinedStats()
         setSiteStats(stats)
       } catch (error) {
         console.error('Error fetching site stats:', error)
@@ -260,7 +258,7 @@ export default function Sidebar() {
                 <UsersIcon className="w-4 h-4 mr-2 text-green-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Users Online</span>
               </div>
-              <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.usersOnline.toLocaleString()}</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.onlineUsers.toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="flex items-center">
@@ -278,10 +276,10 @@ export default function Sidebar() {
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="flex items-center">
-                <Hash className="w-4 h-4 mr-2 text-purple-500" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">Posts</span>
+                <Heart className="w-4 h-4 mr-2 text-red-500" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Total Likes</span>
               </div>
-              <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.totalPosts.toLocaleString()}</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.totalLikes.toLocaleString()}</span>
             </div>
           </div>
         </div>

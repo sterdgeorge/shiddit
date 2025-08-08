@@ -1,101 +1,107 @@
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore'
+import { db } from './firebase'
 
-export interface SiteStats {
+export interface FakeStats {
   totalUsers: number
-  totalPosts: number
-  totalCommunities: number
-  totalComments: number
-  usersOnline: number // This would need a more sophisticated system for real-time tracking
-  verifiedUsers: number
-  activeUsers: number // Users active in last 24 hours
+  onlineUsers: number
+  totalLikes: number
+  totalMembers: number
 }
 
-export const getSiteStats = async (): Promise<SiteStats> => {
+export interface CombinedStats {
+  totalUsers: number
+  onlineUsers: number
+  totalLikes: number
+  totalCommunities: number
+  totalMembers: number
+}
+
+// Get real stats from the database
+export const getRealStats = async (): Promise<{
+  totalUsers: number
+  totalLikes: number
+  totalCommunities: number
+  totalMembers: number
+}> => {
   try {
-    // Get total users
+    // Get users count
     const usersSnapshot = await getDocs(collection(db, 'users'))
     const totalUsers = usersSnapshot.size
 
-    // Get verified users
-    const verifiedUsersSnapshot = await getDocs(
-      query(collection(db, 'users'), where('emailVerified', '==', true))
-    )
-    const verifiedUsers = verifiedUsersSnapshot.size
-
-    // Get total posts
+    // Get posts and calculate total likes
     const postsSnapshot = await getDocs(collection(db, 'posts'))
-    const totalPosts = postsSnapshot.size
+    const totalLikes = postsSnapshot.docs.reduce((sum, doc) => {
+      const data = doc.data()
+      return sum + (data.upvotes?.length || 0)
+    }, 0)
 
-    // Get total communities
+    // Get communities count and total members
     const communitiesSnapshot = await getDocs(collection(db, 'communities'))
     const totalCommunities = communitiesSnapshot.size
-
-    // Get total comments (if you have a comments collection)
-    let totalComments = 0
-    try {
-      const commentsSnapshot = await getDocs(collection(db, 'comments'))
-      totalComments = commentsSnapshot.size
-    } catch (error) {
-      // Comments collection might not exist yet
-      console.log('Comments collection not found, setting to 0')
-    }
-
-    // Get active users (users active in last 24 hours)
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const activeUsersSnapshot = await getDocs(
-      query(
-        collection(db, 'users'),
-        where('lastActive', '>=', oneDayAgo)
-      )
-    )
-    const activeUsers = activeUsersSnapshot.size
-
-    // For now, estimate users online as 10% of active users
-    // In a real app, you'd implement a proper online tracking system
-    const usersOnline = Math.max(1, Math.floor(activeUsers * 0.1))
+    const totalMembers = communitiesSnapshot.docs.reduce((sum, doc) => {
+      const data = doc.data()
+      return sum + (data.memberCount || 0)
+    }, 0)
 
     return {
       totalUsers,
-      totalPosts,
+      totalLikes,
       totalCommunities,
-      totalComments,
-      usersOnline,
-      verifiedUsers,
-      activeUsers
+      totalMembers
     }
   } catch (error) {
-    console.error('Error fetching site stats:', error)
-    // Return default stats if there's an error
+    console.error('Error getting real stats:', error)
     return {
       totalUsers: 0,
-      totalPosts: 0,
+      totalLikes: 0,
       totalCommunities: 0,
-      totalComments: 0,
-      usersOnline: 1,
-      verifiedUsers: 0,
-      activeUsers: 0
+      totalMembers: 0
     }
   }
 }
 
-export const getCommunityStats = async (communityId: string) => {
+// Get fake stats from admin collection
+export const getFakeStats = async (): Promise<FakeStats> => {
   try {
-    const communityDoc = await getDocs(
-      query(collection(db, 'communities'), where('__name__', '==', communityId))
-    )
-    
-    if (communityDoc.empty) {
-      return { memberCount: 0, postCount: 0 }
+    const fakeStatsDoc = await getDoc(doc(db, 'admin', 'fakeStats'))
+    if (fakeStatsDoc.exists()) {
+      const data = fakeStatsDoc.data()
+      return {
+        totalUsers: data.totalUsers || 0,
+        onlineUsers: data.onlineUsers || 0,
+        totalLikes: data.totalLikes || 0,
+        totalMembers: data.totalMembers || 0
+      }
     }
-
-    const communityData = communityDoc.docs[0].data()
     return {
-      memberCount: communityData.memberCount || 0,
-      postCount: communityData.postCount || 0
+      totalUsers: 0,
+      onlineUsers: 0,
+      totalLikes: 0,
+      totalMembers: 0
     }
   } catch (error) {
-    console.error('Error fetching community stats:', error)
-    return { memberCount: 0, postCount: 0 }
+    console.error('Error getting fake stats:', error)
+    return {
+      totalUsers: 0,
+      onlineUsers: 0,
+      totalLikes: 0,
+      totalMembers: 0
+    }
+  }
+}
+
+// Get combined stats (real + fake)
+export const getCombinedStats = async (): Promise<CombinedStats> => {
+  const [realStats, fakeStats] = await Promise.all([
+    getRealStats(),
+    getFakeStats()
+  ])
+
+  return {
+    totalUsers: realStats.totalUsers + fakeStats.totalUsers,
+    onlineUsers: 1 + fakeStats.onlineUsers, // Assume 1 real online user
+    totalLikes: realStats.totalLikes + fakeStats.totalLikes,
+    totalCommunities: realStats.totalCommunities,
+    totalMembers: realStats.totalMembers + fakeStats.totalMembers
   }
 }

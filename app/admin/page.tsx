@@ -16,6 +16,7 @@ interface Post {
   score: number
   createdAt: any
   content: string
+  upvotes?: string[]
 }
 
 interface Community {
@@ -626,11 +627,18 @@ export default function AdminPage() {
                 </div>
               </div>
               <div className="p-6">
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Note:</strong> Fake stats are <strong>additive</strong> to real stats. 
+                    Setting "Total Users" to 100 will show: Real users (6) + Fake users (100) = 106 total users.
+                  </p>
+                </div>
+                
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Total Users
+                        Fake Total Users (adds to real: {users.length})
                       </label>
                       {editingStats ? (
                         <input
@@ -638,17 +646,23 @@ export default function AdminPage() {
                           value={fakeStats.totalUsers}
                           onChange={(e) => setFakeStats(prev => ({ ...prev, totalUsers: parseInt(e.target.value) || 0 }))}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          placeholder="0"
                         />
                       ) : (
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {fakeStats.totalUsers.toLocaleString()}
+                        <div>
+                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {fakeStats.totalUsers.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Total displayed: {(users.length + fakeStats.totalUsers).toLocaleString()}
+                          </div>
                         </div>
                       )}
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Online Users
+                        Fake Online Users (adds to real: 1)
                       </label>
                       {editingStats ? (
                         <input
@@ -656,10 +670,16 @@ export default function AdminPage() {
                           value={fakeStats.onlineUsers}
                           onChange={(e) => setFakeStats(prev => ({ ...prev, onlineUsers: parseInt(e.target.value) || 0 }))}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          placeholder="0"
                         />
                       ) : (
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {fakeStats.onlineUsers.toLocaleString()}
+                        <div>
+                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {fakeStats.onlineUsers.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Total displayed: {(1 + fakeStats.onlineUsers).toLocaleString()}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -668,7 +688,7 @@ export default function AdminPage() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Total Likes
+                        Fake Total Likes (adds to real: {posts.reduce((sum, post) => sum + (post.upvotes?.length || 0), 0)})
                       </label>
                       {editingStats ? (
                         <input
@@ -676,17 +696,23 @@ export default function AdminPage() {
                           value={fakeStats.totalLikes}
                           onChange={(e) => setFakeStats(prev => ({ ...prev, totalLikes: parseInt(e.target.value) || 0 }))}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          placeholder="0"
                         />
                       ) : (
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {fakeStats.totalLikes.toLocaleString()}
+                        <div>
+                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {fakeStats.totalLikes.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Total displayed: {(posts.reduce((sum, post) => sum + (post.upvotes?.length || 0), 0) + fakeStats.totalLikes).toLocaleString()}
+                          </div>
                         </div>
                       )}
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Total Community Members
+                        Fake Total Community Members (adds to real: {communities.reduce((sum, community) => sum + (community.memberCount || 0), 0)})
                       </label>
                       {editingStats ? (
                         <input
@@ -694,10 +720,16 @@ export default function AdminPage() {
                           value={fakeStats.totalMembers}
                           onChange={(e) => setFakeStats(prev => ({ ...prev, totalMembers: parseInt(e.target.value) || 0 }))}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          placeholder="0"
                         />
                       ) : (
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {fakeStats.totalMembers.toLocaleString()}
+                        <div>
+                          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {fakeStats.totalMembers.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Total displayed: {(communities.reduce((sum, community) => sum + (community.memberCount || 0), 0) + fakeStats.totalMembers).toLocaleString()}
+                          </div>
                         </div>
                       )}
                     </div>
