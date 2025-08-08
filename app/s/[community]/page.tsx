@@ -151,6 +151,9 @@ export default function CommunityPage() {
         } catch (error) {
           console.error('Error checking membership:', error)
         }
+      } else {
+        // Reset membership status when user or community changes
+        setIsMember(false)
       }
     }
     
@@ -170,8 +173,20 @@ export default function CommunityPage() {
       console.log('Joining community:', community.id, 'for user:', user.uid)
       await joinCommunity(community.id, user.uid, user.displayName || user.email?.split('@')[0] || 'Anonymous')
       console.log('Successfully joined community')
+      
+      // Update local state
       setIsMember(true)
       setCommunity(prev => prev ? { ...prev, memberCount: prev.memberCount + 1 } : null)
+      
+      // Double-check membership status after a short delay
+      setTimeout(async () => {
+        if (user && community) {
+          const membership = await isCommunityMember(community.id, user.uid)
+          console.log('Re-checking membership after join:', membership)
+          setIsMember(membership)
+        }
+      }, 1000)
+      
       alert('Successfully joined the community!')
     } catch (error) {
       console.error('Error joining community:', error)
@@ -220,7 +235,7 @@ export default function CommunityPage() {
         <div className="card p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-orange-500 rounded-lg flex items-center justify-center overflow-hidden">
+              <div className="w-16 h-16 bg-orange-500 rounded-lg flex items-center justify-center overflow-hidden relative">
                 {community.imageUrl ? (
                   <img
                     src={community.imageUrl}
@@ -229,11 +244,14 @@ export default function CommunityPage() {
                     onError={(e) => {
                       // Hide the image and show the hash icon if it fails to load
                       e.currentTarget.style.display = 'none'
-                      e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                      const hashIcon = e.currentTarget.parentElement?.querySelector('.hash-fallback')
+                      if (hashIcon) {
+                        hashIcon.classList.remove('hidden')
+                      }
                     }}
                   />
                 ) : null}
-                <Hash className={`w-8 h-8 text-white ${community.imageUrl ? 'hidden' : ''}`} />
+                <Hash className={`w-8 h-8 text-white hash-fallback ${community.imageUrl ? 'hidden' : ''}`} />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
