@@ -31,11 +31,18 @@ export default function VoteButtons({
   const hasDownvoted = userId && downvotes ? downvotes.includes(userId) : false
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
-    if (!userId || isVoting) return
+    console.log('VoteButtons handleVote called:', { voteType, userId, isVoting })
+    
+    if (!userId || isVoting) {
+      console.log('Vote blocked:', { userId: !!userId, isVoting })
+      return
+    }
 
     setIsVoting(true)
     try {
+      console.log('Calling onVote function')
       await onVote(voteType)
+      console.log('Vote successful')
     } catch (error) {
       console.error('Vote failed:', error)
     } finally {
@@ -76,18 +83,19 @@ export default function VoteButtons({
         onClick={() => handleVote('upvote')}
         disabled={isVoting}
         className={cn(
-          'p-1 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700',
+          'p-1 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600',
           hasUpvoted
-            ? 'text-orange-500 hover:text-orange-600'
+            ? 'text-orange-500 hover:text-orange-600 bg-orange-50 dark:bg-orange-900/20'
             : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300',
           isVoting && 'opacity-50 cursor-not-allowed'
         )}
+        title={userId ? 'Upvote' : 'Login to vote'}
       >
         <ChevronUp className={getSizeClasses()} />
       </button>
 
       <span className={cn(
-        'font-semibold min-w-[1.5rem] text-center',
+        'font-semibold min-w-[1.5rem] text-center px-1',
         getScoreSize(),
         score > 0 ? 'text-green-500 dark:text-green-400' :
         score < 0 ? 'text-red-500 dark:text-red-400' :
@@ -100,12 +108,13 @@ export default function VoteButtons({
         onClick={() => handleVote('downvote')}
         disabled={isVoting}
         className={cn(
-          'p-1 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700',
+          'p-1 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600',
           hasDownvoted
-            ? 'text-blue-500 hover:text-blue-600'
+            ? 'text-blue-500 hover:text-blue-600 bg-blue-50 dark:bg-blue-900/20'
             : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300',
           isVoting && 'opacity-50 cursor-not-allowed'
         )}
+        title={userId ? 'Downvote' : 'Login to vote'}
       >
         <ChevronDown className={getSizeClasses()} />
       </button>

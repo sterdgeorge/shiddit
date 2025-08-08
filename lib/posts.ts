@@ -189,6 +189,8 @@ export const getTopComments = async (limitCount: number = 10) => {
 // Vote on post
 export const votePost = async (postId: string, userId: string, voteType: 'upvote' | 'downvote' | 'remove') => {
   try {
+    console.log('votePost called:', { postId, userId, voteType })
+    
     if (!userId) {
       throw new Error('User ID is required to vote')
     }
@@ -201,6 +203,13 @@ export const votePost = async (postId: string, userId: string, voteType: 'upvote
     }
     
     const postData = postDoc.data()
+    console.log('Post data:', { 
+      authorId: postData.authorId, 
+      currentUpvotes: postData.upvotes?.length || 0,
+      currentDownvotes: postData.downvotes?.length || 0,
+      currentScore: postData.score
+    })
+    
     const upvotes = postData.upvotes || []
     const downvotes = postData.downvotes || []
     
@@ -218,12 +227,20 @@ export const votePost = async (postId: string, userId: string, voteType: 'upvote
     // Calculate new score
     const newScore = newUpvotes.length - newDownvotes.length
     
+    console.log('Updating post with:', { 
+      newUpvotes: newUpvotes.length, 
+      newDownvotes: newDownvotes.length, 
+      newScore 
+    })
+    
     // Update the post
     await updateDoc(postRef, {
       upvotes: newUpvotes,
       downvotes: newDownvotes,
       score: newScore
     })
+    
+    console.log('Post updated successfully')
     
     return {
       id: postId,

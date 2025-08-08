@@ -33,12 +33,25 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
   const [post, setPost] = useState(initialPost)
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
-    if (!user) return
+    console.log('handleVote called:', { 
+      voteType, 
+      userId: user?.uid, 
+      postId: post.id, 
+      postAuthor: post.authorUsername,
+      isOwnPost: user?.uid === post.authorId 
+    })
+    
+    if (!user) {
+      console.log('No user logged in')
+      return
+    }
     
     try {
       // Determine the actual vote type based on current state
       const hasUpvoted = post.upvotes?.includes(user.uid) || false
       const hasDownvoted = post.downvotes?.includes(user.uid) || false
+      
+      console.log('Current vote state:', { hasUpvoted, hasDownvoted })
       
       let actualVoteType: 'upvote' | 'downvote' | 'remove'
       
@@ -56,7 +69,11 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
         }
       }
       
+      console.log('Calling votePost with:', { postId: post.id, userId: user.uid, voteType: actualVoteType })
+      
       const result = await votePost(post.id, user.uid, actualVoteType)
+      
+      console.log('Vote result:', result)
       
       // Update local state instead of refreshing
       setPost(prevPost => ({
@@ -199,15 +216,22 @@ export default function PostCard({ post: initialPost, showCommunity = true }: Po
 
         {/* Footer */}
         <div className="flex items-center gap-3 sm:gap-6 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-          <VoteButtons
-            score={post.score}
-            upvotes={post.upvotes}
-            downvotes={post.downvotes}
-            userId={user?.uid}
-            onVote={handleVote}
-            size="sm"
-            orientation="horizontal"
-          />
+          <div className="flex items-center gap-2">
+            <VoteButtons
+              score={post.score}
+              upvotes={post.upvotes}
+              downvotes={post.downvotes}
+              userId={user?.uid}
+              onVote={handleVote}
+              size="sm"
+              orientation="horizontal"
+            />
+            {!user && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Login to vote
+              </span>
+            )}
+          </div>
           
           <Link 
             href={`/s/${post.communityName}/comments/${post.id}`}
