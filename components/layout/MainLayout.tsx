@@ -32,7 +32,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <Navbar />
       <div className="flex flex-1">
         <Sidebar />
-        <div className="flex-1 flex justify-center">
+        <div className="flex-1 flex justify-center md:ml-64">
           <main className="w-full max-w-2xl p-2 sm:p-4 pt-2 pb-20 md:pb-2">
             {user && !isEmailVerified && (
               <EmailVerificationBanner email={user.email || ''} />
