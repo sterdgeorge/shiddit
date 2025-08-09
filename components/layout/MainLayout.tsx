@@ -33,17 +33,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <div className="flex flex-1">
         <Sidebar />
         <div className="flex-1 flex justify-center md:ml-64">
-          <main className="w-full max-w-2xl p-2 sm:p-4 pt-2 pb-20 md:pb-2 xl:mr-80">
+          <main className="w-full max-w-2xl p-2 sm:p-4 pt-2 pb-20 md:pb-2">
             {user && !isEmailVerified && (
               <EmailVerificationBanner email={user.email || ''} />
             )}
             {children}
           </main>
         </div>
-        <div className="w-80 p-4 hidden xl:block fixed top-12 right-4">
+        <div className="w-80 p-4 hidden xl:block fixed top-12" style={{ left: '82%' }}>
           <PopularCommunities />
         </div>
-        <div className="w-80 p-4 hidden xl:block fixed bottom-4 right-4">
+        <div className="w-80 p-4 hidden xl:block fixed bottom-4" style={{ left: '82%' }}>
           <Footer />
         </div>
       </div>
