@@ -93,7 +93,7 @@ export default function Navbar() {
           </div>
 
           {/* Right Side - Far Right */}
-          <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 z-10">
+          <div className="flex items-center space-x-0.5 sm:space-x-1 md:space-x-2 flex-shrink-0 z-10">
             {/* Site Stats - Hidden on mobile, visible on desktop */}
             <div className="hidden lg:flex items-center space-x-3 text-xs">
               <div className="flex items-center space-x-1 text-green-500">
@@ -122,10 +122,10 @@ export default function Navbar() {
               {theme === 'light' ? <Moon className="w-3 h-3 sm:w-4 sm:h-4" /> : <Sun className="w-3 h-3 sm:w-4 sm:h-4" />}
             </button>
 
-            {/* Copy CA Button - Hidden on mobile, visible on desktop */}
+            {/* Copy CA Button - Always visible */}
             <button
               onClick={handleCopyCA}
-              className="hidden sm:block text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium text-xs sm:text-sm whitespace-nowrap px-1 sm:px-1.5 md:px-3 py-1 sm:py-1.5 md:py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               Copy CA
             </button>
