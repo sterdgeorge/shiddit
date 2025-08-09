@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/components/providers/AuthProvider'
@@ -19,15 +19,41 @@ import {
   ArrowLeftRight, 
   Rocket, 
   Coins,
-  Menu
+  Menu,
+  Heart
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getCombinedStats, CombinedStats } from '@/lib/stats'
 
 export default function MobileNav() {
   const { user, userProfile } = useAuth()
   const { showLoginPopup } = useLogin()
   const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
+  const [siteStats, setSiteStats] = useState<CombinedStats>({
+    totalUsers: 0,
+    onlineUsers: 1,
+    totalLikes: 0,
+    totalCommunities: 0,
+    totalMembers: 0
+  })
+
+  // Fetch site stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const stats = await getCombinedStats()
+        setSiteStats(stats)
+      } catch (error) {
+        console.error('Error fetching site stats:', error)
+      }
+    }
+
+    fetchStats()
+    // Refresh stats every 5 minutes
+    const interval = setInterval(fetchStats, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const navigationItems = [
     {
@@ -256,6 +282,43 @@ export default function MobileNav() {
                   </Link>
                 )
               })}
+            </div>
+
+            {/* Site Stats Section */}
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                Site Stats
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-green-500" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Online</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.onlineUsers.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-blue-500" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Users</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.totalUsers.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center">
+                    <Hash className="w-4 h-4 mr-2 text-orange-500" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Communities</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.totalCommunities.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center">
+                    <Heart className="w-4 h-4 mr-2 text-red-500" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Likes</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{siteStats.totalLikes.toLocaleString()}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -4,11 +4,10 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useTheme } from '@/components/providers/ThemeProvider'
-import { Search, Sun, Moon, Copy, LogOut, Settings, User, Shield, Crown, Users, Heart, Hash } from 'lucide-react'
+import { Search, Sun, Moon, Copy, LogOut, Settings, User, Shield, Crown } from 'lucide-react'
 import { logoutUser } from '@/lib/auth'
 import { copyToClipboard } from '@/lib/utils'
 import { useLogin } from '@/components/providers/LoginProvider'
-import { getCombinedStats, CombinedStats } from '@/lib/stats'
 
 export default function Navbar() {
   const { user, userProfile } = useAuth()
@@ -16,32 +15,8 @@ export default function Navbar() {
   const { showLoginPopup } = useLogin()
   const [searchQuery, setSearchQuery] = useState('')
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [siteStats, setSiteStats] = useState<CombinedStats>({
-    totalUsers: 0,
-    onlineUsers: 1,
-    totalLikes: 0,
-    totalCommunities: 0,
-    totalMembers: 0
-  })
   
   const isUserAdmin = userProfile?.isAdmin || false
-
-  // Fetch site stats
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const stats = await getCombinedStats()
-        setSiteStats(stats)
-      } catch (error) {
-        console.error('Error fetching site stats:', error)
-      }
-    }
-
-    fetchStats()
-    // Refresh stats every 5 minutes
-    const interval = setInterval(fetchStats, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [])
 
   const handleCopyCA = async () => {
     try {
@@ -94,26 +69,6 @@ export default function Navbar() {
 
           {/* Right Side - Far Right */}
           <div className="flex items-center space-x-0.5 sm:space-x-1 md:space-x-2 flex-shrink-0 z-10">
-            {/* Site Stats - Hidden on mobile, visible on desktop */}
-            <div className="hidden lg:flex items-center space-x-3 text-xs">
-              <div className="flex items-center space-x-1 text-green-500">
-                <Users className="w-3 h-3" />
-                <span className="text-gray-700 dark:text-gray-300">{siteStats.onlineUsers.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center space-x-1 text-blue-500">
-                <Users className="w-3 h-3" />
-                <span className="text-gray-700 dark:text-gray-300">{siteStats.totalUsers.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center space-x-1 text-orange-500">
-                <Hash className="w-3 h-3" />
-                <span className="text-gray-700 dark:text-gray-300">{siteStats.totalCommunities.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center space-x-1 text-red-500">
-                <Heart className="w-3 h-3" />
-                <span className="text-gray-700 dark:text-gray-300">{siteStats.totalLikes.toLocaleString()}</span>
-              </div>
-            </div>
-
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
