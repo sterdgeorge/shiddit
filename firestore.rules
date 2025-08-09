@@ -72,9 +72,12 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.creatorId;
     }
     
-    // Admin data - only accessible by admin users
+    // Admin data - fakeStats can be read by anyone, but only admins can write
     match /admin/{docId} {
-      allow read, write: if request.auth != null && 
+      allow read: if docId == "fakeStats" || (request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+      allow write: if request.auth != null && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
