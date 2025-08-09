@@ -27,7 +27,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
     )
   }
 
-    return (
+  return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#1a1a1b] flex flex-col">
       <Navbar />
       <div className="flex flex-1">
@@ -40,10 +40,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
             {children}
           </main>
         </div>
-        <div className="w-80 p-4 hidden xl:block fixed top-12" style={{ left: 'calc(50% + 336px + 672px/2 + 200px)' }}>
+        <div className="w-80 p-4 hidden xl:block fixed top-12" style={{ left: 'calc(50% + 336px)' }}>
           <PopularCommunities />
         </div>
-        <div className="w-80 p-4 hidden xl:block fixed bottom-4" style={{ left: 'calc(50% + 336px + 672px/2 + 200px)' }}>
+        <div className="w-80 p-4 hidden xl:block fixed bottom-4" style={{ left: 'calc(50% + 336px)' }}>
           <Footer />
         </div>
       </div>
