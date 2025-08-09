@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/providers/AuthProvider'
 import { useLogin } from '@/components/providers/LoginProvider'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc, updateDoc, increment } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc, updateDoc, increment, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import rateLimiter, { RATE_LIMITS } from '@/lib/rateLimit'
 import { uploadPostMedia, getRemainingMediaUploads } from '@/lib/postMedia'
@@ -300,12 +300,38 @@ export default function CreatePostPage() {
     setErrors({})
 
     try {
+      // Ensure user document exists before creating post
+      const userDocRef = doc(db, 'users', user.uid)
+      const userDoc = await getDoc(userDocRef)
+      
+      if (!userDoc.exists()) {
+        // Create user document if it doesn't exist
+        const userProfileData = {
+          uid: user.uid,
+          email: user.email || '',
+          username: userProfile.username || user.displayName || 'user',
+          displayName: user.displayName || userProfile.username || 'User',
+          bio: '',
+          avatar: '',
+          createdAt: serverTimestamp(),
+          friends: [],
+          isAdmin: false,
+          postKarma: 0,
+          commentKarma: 0,
+          totalKarma: 0,
+          emailVerified: user.emailVerified,
+        }
+        
+        await setDoc(userDocRef, userProfileData)
+        console.log('Created missing user document for:', user.uid)
+      }
+
       // Create post
       const postData: any = {
         title: form.title.trim(),
         content: form.content.trim(),
         authorId: user.uid,
-        authorUsername: userProfile.username,
+        authorUsername: userProfile.username || user.displayName || 'user',
         communityId: selectedCommunity.id,
         communityName: selectedCommunity.name,
         createdAt: serverTimestamp(),

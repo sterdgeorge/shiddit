@@ -127,7 +127,7 @@ function VerificationModal({ isOpen, onClose }: VerificationModalProps) {
 
           {/* Title */}
           <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">
-            Become a Verified Farter
+            Become a Verified Shitter
           </h3>
 
           {/* Description */}
