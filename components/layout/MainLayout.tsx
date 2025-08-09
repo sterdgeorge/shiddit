@@ -40,10 +40,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
             {children}
           </main>
         </div>
-        <div className="w-80 p-4 hidden xl:block fixed top-12" style={{ left: '82%' }}>
+        <div className="w-80 p-4 hidden xl:block fixed top-12" style={{ left: 'calc(50% + 336px + 672px/2 + 24px)' }}>
           <PopularCommunities />
         </div>
-        <div className="w-80 p-4 hidden xl:block fixed bottom-4" style={{ left: '82%' }}>
+        <div className="w-80 p-4 hidden xl:block fixed bottom-4" style={{ left: 'calc(50% + 336px + 672px/2 + 24px)' }}>
           <Footer />
         </div>
       </div>
