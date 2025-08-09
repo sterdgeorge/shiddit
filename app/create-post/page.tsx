@@ -85,6 +85,7 @@ export default function CreatePostPage() {
 
     const fetchCommunities = async () => {
       try {
+        // First, get communities the user is a member of
         const membersQuery = query(
           collection(db, 'communityMembers'),
           where('userId', '==', user.uid)
@@ -95,32 +96,29 @@ export default function CreatePostPage() {
         
         console.log('User community memberships:', communityIds)
         
-        if (communityIds.length === 0) {
-          console.log('No community memberships found for user')
-          return
-        }
+        // Get all public communities
+        const allCommunitiesQuery = query(collection(db, 'communities'))
+        const allCommunitiesSnapshot = await getDocs(allCommunitiesQuery)
         
         const communitiesData: Community[] = []
-        for (const communityId of communityIds) {
-          try {
-            const communityDoc = await getDoc(doc(db, 'communities', communityId))
-            
-            if (communityDoc.exists()) {
-              const data = communityDoc.data()
-              communitiesData.push({
-                id: communityDoc.id,
-                name: data.name,
-                displayName: data.displayName,
-                description: data.description,
-                type: data.type || 'public',
-                nsfw: data.nsfw || false,
-                allowImages: data.allowImages !== false,
-                allowLinks: data.allowLinks !== false,
-                allowPolls: data.allowPolls !== false
-              })
-            }
-          } catch (error) {
-            console.error('Error fetching community:', communityId, error)
+        
+        for (const doc of allCommunitiesSnapshot.docs) {
+          const data = doc.data()
+          const isMember = communityIds.includes(doc.id)
+          
+          // Include all public communities and communities the user is a member of
+          if (data.type === 'public' || isMember) {
+            communitiesData.push({
+              id: doc.id,
+              name: data.name,
+              displayName: data.displayName,
+              description: data.description,
+              type: data.type || 'public',
+              nsfw: data.nsfw || false,
+              allowImages: data.allowImages !== false,
+              allowLinks: data.allowLinks !== false,
+              allowPolls: data.allowPolls !== false
+            })
           }
         }
         
@@ -277,7 +275,7 @@ export default function CreatePostPage() {
 
     // Check if user can post to this community
     if (selectedCommunity.type === 'restricted' || selectedCommunity.type === 'private') {
-      // Check if user is approved member
+      // Check if user is approved member for restricted/private communities
       const memberQuery = query(
         collection(db, 'communityMembers'),
         where('communityId', '==', selectedCommunity.id),
@@ -290,6 +288,7 @@ export default function CreatePostPage() {
         return
       }
     }
+    // For public communities, users can post even if they're not members
 
     // Validation
     if (!validateForm()) {
@@ -300,38 +299,12 @@ export default function CreatePostPage() {
     setErrors({})
 
     try {
-      // Ensure user document exists before creating post
-      const userDocRef = doc(db, 'users', user.uid)
-      const userDoc = await getDoc(userDocRef)
-      
-      if (!userDoc.exists()) {
-        // Create user document if it doesn't exist
-        const userProfileData = {
-          uid: user.uid,
-          email: user.email || '',
-          username: userProfile?.username || user.displayName || 'user',
-          displayName: user.displayName || userProfile?.username || 'User',
-          bio: '',
-          avatar: '',
-          createdAt: serverTimestamp(),
-          friends: [],
-          isAdmin: false,
-          postKarma: 0,
-          commentKarma: 0,
-          totalKarma: 0,
-          emailVerified: user.emailVerified,
-        }
-        
-        await setDoc(userDocRef, userProfileData)
-        console.log('Created missing user document for:', user.uid)
-      }
-
       // Create post
       const postData: any = {
         title: form.title.trim(),
         content: form.content.trim(),
         authorId: user.uid,
-        authorUsername: userProfile?.username || user.displayName || 'user',
+        authorUsername: userProfile?.username || user.displayName || user.email?.split('@')[0] || 'user',
         communityId: selectedCommunity.id,
         communityName: selectedCommunity.name,
         createdAt: serverTimestamp(),
