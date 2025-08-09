@@ -129,7 +129,7 @@ export default function Sidebar() {
   ]
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen p-2 sm:p-4 fixed top-12 left-0 overflow-y-auto h-screen pt-4 z-30 shadow-lg md:shadow-none">
+    <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen p-2 sm:p-4 fixed top-12 left-0 overflow-y-auto h-screen pt-4 hidden md:block">
       <div className="space-y-6 sm:space-y-8">
         {/* Navigation */}
         <nav className="space-y-2">
