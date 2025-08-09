@@ -20,7 +20,7 @@ export default function Navbar() {
 
   const handleCopyCA = async () => {
     try {
-      await copyToClipboard('GETREADY')
+      await copyToClipboard('FKZk9kjkEWchbcs3gBkGNvCbiyJJ6kPySSDzJqe6pump')
       // You could add a toast notification here
     } catch (error) {
       console.error('Failed to copy:', error)

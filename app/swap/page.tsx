@@ -6,9 +6,9 @@ import { useLogin } from '@/components/providers/LoginProvider'
 import MainLayout from '@/components/layout/MainLayout'
 import { ArrowLeftRight, ExternalLink, AlertCircle, CheckCircle, Copy } from 'lucide-react'
 
-const TOKEN_CONTRACT_ADDRESS = 'GETREADY'
-const JUPITER_IFRAME_URL = 'https://jup.ag/swap/SOL-GETREADY?inputMint=So11111111111111111111111111111111111111112&outputMint=GETREADY'
-const STORE_ADDRESS = 'GETREADY'
+const TOKEN_CONTRACT_ADDRESS = 'FKZk9kjkEWchbcs3gBkGNvCbiyJJ6kPySSDzJqe6pump'
+const JUPITER_IFRAME_URL = 'https://jup.ag/swap/SOL-FKZk9kjkEWchbcs3gBkGNvCbiyJJ6kPySSDzJqe6pump?inputMint=So11111111111111111111111111111111111111112&outputMint=FKZk9kjkEWchbcs3gBkGNvCbiyJJ6kPySSDzJqe6pump'
+const STORE_ADDRESS = 'FKZk9kjkEWchbcs3gBkGNvCbiyJJ6kPySSDzJqe6pump'
 
 export default function SwapPage() {
   const { user } = useAuth()
